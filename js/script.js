@@ -1,5 +1,5 @@
 /* =========================================================
-   E-SHOPPING — UI Enhancements
+   G-SHOPPING — UI Enhancements
    Toasts, animated confirm dialogs, cart badge bounce,
    card fade-in, and button ripple effects.
 

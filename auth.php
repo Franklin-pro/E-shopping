@@ -216,7 +216,7 @@ function get_all_products($demoProducts) {
 
     foreach ($demoProducts as $p) {
         $p['seller_email'] = $p['seller_email'] ?? 'admin@eshopping.test';
-        $p['seller_name']  = $p['seller_name']  ?? 'E-SHOPPING';
+        $p['seller_name']  = $p['seller_name']  ?? 'G-SHOPPING';
         $p['location']     = $p['location']     ?? 'Warehouse';
         $p['stock']        = $p['stock']        ?? 999;
         $p['source']       = 'demo';

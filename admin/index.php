@@ -55,7 +55,7 @@ $me = current_user();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin dashboard | E-SHOPPING</title>
+    <title>Admin dashboard | G-SHOPPING</title>
 
     <!-- main site CSS (one folder up) -->
     <link rel="stylesheet" href="../style.css">
@@ -69,7 +69,7 @@ $me = current_user();
 <body>
     <nav class="navbar">
         <div class="nav-inner">
-            <a href="/index.php" class="logo">E-SHOPPING</a>
+            <a href="/index.php" class="logo">G-SHOPPING</a>
             <ul class="nav-links">
                 <li><a href="/index.php">Home</a></li>
                 <li><a href="/products.php">Products</a></li>

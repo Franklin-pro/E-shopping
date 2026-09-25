@@ -43,7 +43,7 @@ header('Content-Disposition: attachment; filename="' . $filename . '"');
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Order <?= e($order['id']) ?> — E-SHOPPING</title>
+    <title>Order <?= e($order['id']) ?> — G-SHOPPING</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -164,7 +164,7 @@ header('Content-Disposition: attachment; filename="' . $filename . '"');
 <body>
     <div class="receipt">
         <div class="receipt-header">
-            <h1>E-SHOPPING</h1>
+            <h1>G-SHOPPING</h1>
             <div class="meta">
                 <strong>#<?= e($order['id']) ?></strong>
                 <?= e(date('F j, Y · g:i A', strtotime($order['date']))) ?><br>
@@ -223,7 +223,7 @@ header('Content-Disposition: attachment; filename="' . $filename . '"');
         </div>
 
         <div class="footer">
-            Thank you for shopping with E-SHOPPING.<br>
+            Thank you for shopping with G-SHOPPING.<br>
             This receipt was generated on <?= e(date('F j, Y \a\t g:i A')) ?>.
         </div>
     </div>

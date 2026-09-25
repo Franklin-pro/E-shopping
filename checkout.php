@@ -171,7 +171,7 @@ function old($key, $default = '') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout | E-SHOPPING</title>
+    <title>Checkout | G-SHOPPING</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
     <style>
@@ -351,7 +351,7 @@ function old($key, $default = '') {
 <body>
     <nav class="navbar">
         <div class="nav-inner">
-            <a href="index.php" class="logo">E-SHOPPING</a>
+            <a href="index.php" class="logo">G-SHOPPING</a>
 
             <ul class="nav-links">
                 <li><a href="index.php">Home</a></li>

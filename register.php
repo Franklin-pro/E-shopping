@@ -57,7 +57,7 @@ $flashes = flash_get();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create account | E-SHOPPING</title>
+    <title>Create account | G-SHOPPING</title>
     <link rel="stylesheet" href="auth-style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
 </head>
@@ -65,11 +65,11 @@ $flashes = flash_get();
     <div class="auth-shell">
         <!-- LEFT: Visual -->
         <aside class="auth-visual">
-            <a href="index.php" class="brand">E-SHOPPING</a>
+            <a href="index.php" class="brand">G-SHOPPING</a>
 
             <div class="visual-content">
                 <h2>Join thousands of happy shoppers and sellers.</h2>
-                <p>Create your free account in seconds and unlock everything E-SHOPPING has to offer.</p>
+                <p>Create your free account in seconds and unlock everything G-SHOPPING has to offer.</p>
 
                 <ul class="visual-features">
                     <li><i class="fa-solid fa-user"></i> Shop as a customer instantly</li>
@@ -79,7 +79,7 @@ $flashes = flash_get();
             </div>
 
             <span style="font-size:1.25rem; opacity:.8; position:relative; z-index:1;">
-                © <?= date('Y') ?> E-SHOPPING
+                © <?= date('Y') ?> G-SHOPPING
             </span>
         </aside>
 

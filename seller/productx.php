@@ -26,7 +26,7 @@ foreach ($products as $p) {
 <body>
     <nav class="navbar">
         <div class="nav-inner">
-            <a href="/index.php" class="logo">E-SHOPPING</a>
+            <a href="/index.php" class="logo">G-SHOPPING</a>
             <ul class="nav-links">
                 <li><a href="/index.php">Home</a></li>
                 <li><a href="/products.php">Products</a></li>
