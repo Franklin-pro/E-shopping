@@ -1,10 +1,14 @@
 <?php
 session_start();
 
-/* =========================================================
-   Load product catalog
-   ========================================================= */
+require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
+
+/* =========================================================
+   Merge demo catalog + seller uploads, then normalize.
+   ========================================================= */
+$products = array_values(get_all_products($products));
+normalize_products($products);
 
 $byId = [];
 foreach ($products as $p) {
@@ -12,18 +16,7 @@ foreach ($products as $p) {
 }
 
 /* =========================================================
-   Helpers
-   ========================================================= */
-function format_price($n) {
-    return '$' . number_format($n, 2);
-}
-
-function old($key, $default = '') {
-    return htmlspecialchars($_POST[$key] ?? $default);
-}
-
-/* =========================================================
-   Read cart from session (same logic as cart.php)
+   Page-specific helper — reads the cart from session
    ========================================================= */
 function get_cart_items($byId) {
     $cart     = $_SESSION['cart'] ?? [];
@@ -39,7 +32,7 @@ function get_cart_items($byId) {
         }
 
         $product   = $byId[$id];
-        $lineTotal = $product['price'] * $qty;
+        $lineTotal = (float) ($product['price'] ?? 0) * $qty;
         $subtotal += $lineTotal;
 
         $items[] = [
@@ -122,6 +115,7 @@ if (!$order && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['orders'][$newOrderId] = [
             'id'       => $newOrderId,
             'date'     => date('Y-m-d H:i'),
+            'status'   => 'pending',
             'items'    => $items,
             'subtotal' => $subtotal,
             'delivery' => $deliveryFee,
@@ -138,7 +132,6 @@ if (!$order && $_SERVER['REQUEST_METHOD'] === 'POST') {
             ],
         ];
 
-        // Order placed — empty the cart and redirect (Post/Redirect/Get).
         $_SESSION['cart'] = [];
         header('Location: checkout.php?order=' . urlencode($newOrderId));
         exit;
@@ -151,7 +144,7 @@ if (!$order && $_SERVER['REQUEST_METHOD'] === 'POST') {
 [$items, $subtotal] = $order ? [[], 0] : get_cart_items($byId);
 $totalQty            = 0;
 foreach ($items as $row) {
-    $totalQty += $row['qty'];
+    $totalQty += (int) ($row['qty'] ?? 0);
 }
 $deliveryFee = $subtotal > 0 ? 2.50 : 0.00;
 $grandTotal  = $subtotal + $deliveryFee;
@@ -165,6 +158,13 @@ if (!empty($_SESSION['cart'])) {
         $cartCount += (int) $qty;
     }
 }
+
+/* =========================================================
+   old() — page-specific helper for form field preservation
+   ========================================================= */
+function old($key, $default = '') {
+    return htmlspecialchars($_POST[$key] ?? $default, ENT_QUOTES, 'UTF-8');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -175,8 +175,9 @@ if (!empty($_SESSION['cart'])) {
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
     <style>
-        /* ---- Checkout-page-only layout (kept local so style.css
-               doesn't need to change) ---- */
+        /* =========================================================
+           Checkout-page-only layout (1rem = 10px)
+           ========================================================= */
         .checkout-grid {
             display: grid;
             grid-template-columns: 1.6fr 1fr;
@@ -186,16 +187,17 @@ if (!empty($_SESSION['cart'])) {
         @media (max-width: 900px) {
             .checkout-grid { grid-template-columns: 1fr; }
         }
+
         .checkout-section {
             background: #fff;
             border: 1px solid #eee;
             border-radius: 12px;
-            padding: 1.5rem 1.75rem;
-            margin-bottom: 1.5rem;
+            padding: 2.4rem 2.8rem;
+            margin-bottom: 2rem;
         }
         .checkout-section h3 {
-            margin: 0 0 1.1rem;
-            font-size: 1.05rem;
+            margin: 0 0 1.8rem;
+            font-size: 1.7rem;
         }
         .checkout-section h3 span {
             display: inline-flex;
@@ -206,42 +208,48 @@ if (!empty($_SESSION['cart'])) {
             border-radius: 50%;
             background: #111;
             color: #fff;
-            font-size: .8rem;
-            margin-right: .6rem;
+            font-size: 1.3rem;
+            margin-right: 1rem;
         }
+
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 1.6rem;
         }
         .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
         @media (max-width: 560px) {
             .form-row, .form-row.cols-3 { grid-template-columns: 1fr; }
         }
+
         .checkout-section label {
             display: block;
-            font-size: .85rem;
+            font-size: 1.4rem;
             font-weight: 600;
             color: #444;
-            margin-bottom: 1rem;
+            margin-bottom: 1.6rem;
         }
         .checkout-section label span.req { color: #c33; }
+
         .checkout-section input[type="text"],
         .checkout-section input[type="email"],
         .checkout-section input[type="tel"] {
             display: block;
             width: 100%;
-            margin-top: .4rem;
-            padding: .65rem .8rem;
+            margin-top: 0.6rem;
+            padding: 1rem 1.3rem;
             border: 1px solid #ddd;
             border-radius: 8px;
-            font-size: .95rem;
+            font-size: 1.5rem;
+            font-family: inherit;
+            color: #222;
             box-sizing: border-box;
         }
+
         .payment-options {
             display: flex;
-            gap: 1rem;
-            margin-bottom: 1.2rem;
+            gap: 1.6rem;
+            margin-bottom: 2rem;
             flex-wrap: wrap;
         }
         .payment-option {
@@ -249,13 +257,13 @@ if (!empty($_SESSION['cart'])) {
             min-width: 160px;
             border: 1.5px solid #ddd;
             border-radius: 10px;
-            padding: .9rem 1rem;
+            padding: 1.4rem 1.6rem;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: .6rem;
+            gap: 1rem;
             font-weight: 600;
-            font-size: .9rem;
+            font-size: 1.4rem;
             transition: border-color .15s ease, background .15s ease;
         }
         .payment-option:has(input:checked) {
@@ -269,35 +277,39 @@ if (!empty($_SESSION['cart'])) {
             background: #fff;
             border: 1px solid #eee;
             border-radius: 12px;
-            padding: 1.5rem 1.75rem;
+            padding: 2.4rem 2.8rem;
             position: sticky;
             top: 1.5rem;
         }
-        .checkout-summary h3 { margin: 0 0 1rem; }
+        .checkout-summary h3 {
+            margin: 0 0 1.6rem;
+            font-size: 1.7rem;
+        }
         .checkout-summary-item {
             display: flex;
             justify-content: space-between;
-            gap: .75rem;
-            font-size: .88rem;
-            padding: .5rem 0;
+            gap: 1.2rem;
+            font-size: 1.4rem;
+            padding: 0.8rem 0;
             border-bottom: 1px dashed #eee;
         }
         .checkout-summary-item .name { color: #333; }
         .checkout-summary-item .qty { color: #888; }
+
         .cart-summary-row {
             display: flex;
             justify-content: space-between;
-            padding: .5rem 0;
-            font-size: .92rem;
+            padding: 0.8rem 0;
+            font-size: 1.5rem;
             color: #555;
         }
         .cart-summary-row.total {
-            font-size: 1.05rem;
+            font-size: 1.8rem;
             font-weight: 700;
             color: #111;
             border-top: 1px solid #eee;
-            margin-top: .5rem;
-            padding-top: .8rem;
+            margin-top: 0.8rem;
+            padding-top: 1.3rem;
         }
 
         /* ---- Confirmation ---- */
@@ -305,24 +317,35 @@ if (!empty($_SESSION['cart'])) {
             max-width: 640px;
             margin: 0 auto;
             text-align: center;
-            padding: 3rem 1.5rem;
+            padding: 4.8rem 2.4rem;
         }
         .order-confirm i.fa-circle-check {
-            font-size: 3.5rem;
+            font-size: 5.6rem;
             color: #1e9e5a;
-            margin-bottom: 1rem;
+            margin-bottom: 1.6rem;
         }
-        .order-confirm h1 { margin: 0 0 .4rem; }
+        .order-confirm h1 {
+            margin: 0 0 0.6rem;
+            font-size: 2.8rem;
+        }
+        .order-confirm p {
+            font-size: 1.5rem;
+            color: #555;
+        }
         .order-confirm .order-id {
             display: inline-block;
             background: #f4f4f4;
             border-radius: 8px;
-            padding: .3rem .8rem;
+            padding: 0.5rem 1.3rem;
             font-family: monospace;
-            font-size: .95rem;
-            margin: .6rem 0 1.6rem;
+            font-size: 1.5rem;
+            margin: 1rem 0 2.6rem;
         }
-        .order-confirm .checkout-summary { text-align: left; margin-top: 1.5rem; }
+        .order-confirm .checkout-summary {
+            text-align: left;
+            margin-top: 2.4rem;
+            position: static;
+        }
     </style>
 </head>
 <body>
@@ -340,10 +363,21 @@ if (!empty($_SESSION['cart'])) {
             <div class="nav-btn">
                 <a href="cart.php" class="cart" aria-label="Cart">
                     <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count"><?= $cartCount ?></span>
+                    <span class="cart-count"><?= (int) $cartCount ?></span>
                 </a>
-                <button onclick="location.href='login.php'">Login</button>
-                <button onclick="location.href='register.php'" class="reg">Register</button>
+
+                <?php if (is_logged_in()): ?>
+                    <?php $u = current_user(); ?>
+                    <?php if (($u['role'] ?? '') === 'seller'): ?>
+                        <button onclick="location.href='seller/index.php'">My shop</button>
+                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                        <button onclick="location.href='admin/index.php'">Admin</button>
+                    <?php endif; ?>
+                    <button onclick="location.href='logout.php'">Sign out</button>
+                <?php else: ?>
+                    <button onclick="location.href='login.php'">Login</button>
+                    <button onclick="location.href='register.php'" class="reg">Register</button>
+                <?php endif; ?>
             </div>
         </div>
     </nav>
@@ -351,52 +385,69 @@ if (!empty($_SESSION['cart'])) {
     <main class="products-page">
 
         <?php if ($order): ?>
+            <?php
+                $ocust  = $order['customer'] ?? [];
+                $oitems = $order['items']    ?? [];
+                $ostatus = $order['status']  ?? 'pending';
+            ?>
             <!-- =========================================================
                  Order confirmation
                  ========================================================= -->
             <div class="order-confirm">
                 <i class="fa-solid fa-circle-check"></i>
-                <h1>Thank you, <?= htmlspecialchars($order['customer']['fullName']) ?>!</h1>
+                <h1>Thank you, <?= htmlspecialchars($ocust['fullName'] ?? 'there') ?>!</h1>
                 <p>Your order has been placed successfully.</p>
-                <span class="order-id">#<?= htmlspecialchars($order['id']) ?></span>
+                <span class="order-id">#<?= htmlspecialchars($order['id'] ?? '') ?></span>
+
+                <p style="margin-bottom: 2.4rem; font-size: 1.4rem;">
+                    Status:
+                    <span class="status-badge <?= e(order_status_class($ostatus)) ?>">
+                        <?= e(order_status_label($ostatus)) ?>
+                    </span>
+                </p>
 
                 <div class="checkout-summary">
                     <h3>Order summary</h3>
-                    <?php foreach ($order['items'] as $row): ?>
+                    <?php foreach ($oitems as $row): ?>
+                        <?php
+                            $prod  = $row['product'] ?? [];
+                            $qty   = (int)   ($row['qty']  ?? 0);
+                            $line  = (float) ($row['line'] ?? 0);
+                        ?>
                         <div class="checkout-summary-item">
                             <span class="name">
-                                <?= htmlspecialchars($row['product']['name']) ?>
-                                <span class="qty">× <?= (int) $row['qty'] ?></span>
+                                <?= htmlspecialchars($prod['name'] ?? 'Product') ?>
+                                <span class="qty">× <?= $qty ?></span>
                             </span>
-                            <span><?= format_price($row['line']) ?></span>
+                            <span><?= format_price($line) ?></span>
                         </div>
                     <?php endforeach; ?>
 
                     <div class="cart-summary-row">
                         <span>Subtotal</span>
-                        <span><?= format_price($order['subtotal']) ?></span>
+                        <span><?= format_price($order['subtotal'] ?? 0) ?></span>
                     </div>
                     <div class="cart-summary-row">
                         <span>Delivery fee</span>
-                        <span><?= $order['delivery'] > 0 ? format_price($order['delivery']) : '—' ?></span>
+                        <span><?= (($order['delivery'] ?? 0) > 0) ? format_price($order['delivery']) : '—' ?></span>
                     </div>
                     <div class="cart-summary-row total">
                         <span>Total paid</span>
-                        <span><?= format_price($order['total']) ?></span>
+                        <span><?= format_price($order['total'] ?? 0) ?></span>
                     </div>
 
-                    <p style="margin-top:1rem; font-size:.85rem; color:#777;">
-                        Shipping to <?= htmlspecialchars($order['customer']['address']) ?>,
-                        <?= htmlspecialchars($order['customer']['city']) ?>,
-                        <?= htmlspecialchars($order['customer']['country']) ?> —
-                        paid via <?= $order['payment'] === 'card' ? 'card' : 'cash on delivery' ?>.
-                        A confirmation was sent to <?= htmlspecialchars($order['customer']['email']) ?>.
+                    <p style="margin-top:1.6rem; font-size:1.4rem; color:#777;">
+                        Shipping to <?= htmlspecialchars($ocust['address'] ?? '') ?>,
+                        <?= htmlspecialchars($ocust['city'] ?? '') ?>,
+                        <?= htmlspecialchars($ocust['country'] ?? '') ?> —
+                        paid via <?= ($order['payment'] ?? 'cod') === 'card' ? 'card' : 'cash on delivery' ?>.
+                        A confirmation was sent to <?= htmlspecialchars($ocust['email'] ?? '') ?>.
                     </p>
                 </div>
 
-                <p style="margin-top:2rem;">
+                <p style="margin-top:3.2rem;">
                     <a href="orders.php" class="btn btn-primary">View my orders</a>
-                    <a href="products.php" class="btn btn-ghost-dark" style="margin-left:.6rem;">Continue shopping</a>
+                    <a href="products.php" class="btn btn-ghost-dark" style="margin-left:1rem;">Continue shopping</a>
                 </p>
             </div>
 
@@ -419,7 +470,7 @@ if (!empty($_SESSION['cart'])) {
                 <i class="fa-solid fa-cart-shopping"></i>
                 <h3>Your cart is empty</h3>
                 <p>Add some products before checking out.</p>
-                <p style="margin-top: 2rem;">
+                <p style="margin-top: 3.2rem;">
                     <a href="products.php" class="btn btn-primary">Browse Products</a>
                 </p>
             </div>
@@ -434,11 +485,11 @@ if (!empty($_SESSION['cart'])) {
             </header>
 
             <?php if (!empty($errors)): ?>
-                <div class="alert alert-error" style="margin-bottom:1.5rem;">
+                <div class="alert alert-error" style="margin-bottom:2.4rem;">
                     <i class="fa-solid fa-circle-exclamation"></i>
-                    <ul style="margin:.4rem 0 0 1.2rem;">
-                        <?php foreach ($errors as $e): ?>
-                            <li><?= htmlspecialchars($e) ?></li>
+                    <ul style="margin:.6rem 0 0 1.9rem;">
+                        <?php foreach ($errors as $err): ?>
+                            <li><?= htmlspecialchars($err) ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </div>
@@ -476,7 +527,7 @@ if (!empty($_SESSION['cart'])) {
                                     <input type="text" name="zip" value="<?= old('zip') ?>" required>
                                 </label>
                                 <label>Country <span class="req">*</span>
-                                    <input type="text" name="country" value="<?= old('country') ?>" required>
+                                    <input type="text" class="input" name="country" value="<?= old('country') ?>" required>
                                 </label>
                             </div>
                         </div>
@@ -487,12 +538,12 @@ if (!empty($_SESSION['cart'])) {
 
                             <div class="payment-options">
                                 <label class="payment-option">
-                                    <input type="radio" name="payment" value="card" id="payCard"
+                                    <input type="radio" class="input" name="payment" value="card" id="payCard"
                                         <?= (($_POST['payment'] ?? 'card') === 'card') ? 'checked' : '' ?>>
                                     <i class="fa-solid fa-credit-card"></i> Credit / debit card
                                 </label>
                                 <label class="payment-option">
-                                    <input type="radio" name="payment" value="cod" id="payCod"
+                                    <input type="radio" class="input" name="payment" value="cod" id="payCod"
                                         <?= (($_POST['payment'] ?? '') === 'cod') ? 'checked' : '' ?>>
                                     <i class="fa-solid fa-money-bill-wave"></i> Cash on delivery
                                 </label>
@@ -500,16 +551,16 @@ if (!empty($_SESSION['cart'])) {
 
                             <div id="cardFields">
                                 <label>Card number <span class="req">*</span>
-                                    <input type="text" name="cardNumber" placeholder="1234 5678 9012 3456"
+                                    <input type="text" class="input" name="cardNumber" placeholder="1234 5678 9012 3456"
                                         value="<?= old('cardNumber') ?>" inputmode="numeric">
                                 </label>
                                 <div class="form-row">
                                     <label>Expiry (MM/YY) <span class="req">*</span>
-                                        <input type="text" name="cardExpiry" placeholder="MM/YY"
+                                        <input type="text" class="input" name="cardExpiry" placeholder="MM/YY"
                                             value="<?= old('cardExpiry') ?>">
                                     </label>
                                     <label>CVV <span class="req">*</span>
-                                        <input type="text" name="cardCvv" placeholder="123"
+                                        <input type="text" class="input" name="cardCvv" placeholder="123"
                                             value="<?= old('cardCvv') ?>" inputmode="numeric">
                                     </label>
                                 </div>
@@ -526,12 +577,17 @@ if (!empty($_SESSION['cart'])) {
                         <h3>Order summary (<?= $totalQty ?> item<?= $totalQty === 1 ? '' : 's' ?>)</h3>
 
                         <?php foreach ($items as $row): ?>
+                            <?php
+                                $prod  = $row['product'] ?? [];
+                                $qty   = (int)   ($row['qty']  ?? 0);
+                                $line  = (float) ($row['line'] ?? 0);
+                            ?>
                             <div class="checkout-summary-item">
                                 <span class="name">
-                                    <?= htmlspecialchars($row['product']['name']) ?>
-                                    <span class="qty">× <?= (int) $row['qty'] ?></span>
+                                    <?= htmlspecialchars($prod['name'] ?? 'Product') ?>
+                                    <span class="qty">× <?= $qty ?></span>
                                 </span>
-                                <span><?= format_price($row['line']) ?></span>
+                                <span><?= format_price($line) ?></span>
                             </div>
                         <?php endforeach; ?>
 
@@ -548,7 +604,7 @@ if (!empty($_SESSION['cart'])) {
                             <span><?= format_price($grandTotal) ?></span>
                         </div>
 
-                        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1.4rem;">
+                        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:2.2rem;">
                             <i class="fa-solid fa-lock"></i> Place order
                         </button>
                     </aside>
@@ -572,6 +628,6 @@ if (!empty($_SESSION['cart'])) {
 
     </main>
 
-    <script src="script.js"></script>
+    <script src="/js/script.js"></script>
 </body>
 </html>

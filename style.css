@@ -1059,7 +1059,7 @@ button {
 .review-form-card textarea {
     font-family: inherit;
     font-size: 1.4rem;
-    padding: 1rem 1.2rem;
+    padding: 2rem 1.5rem;
     border: 1px solid #ddd;
     border-radius: 8px;
     background: #fff;
@@ -1069,6 +1069,20 @@ button {
     color: #222;
     width: 100%;
 }
+.checkout-grid {
+    gap: 2rem;          /* you expect 32px, but you get 20px */
+}
+.checkout-section {
+    padding: 1.5rem 1.75rem;   /* expect 24px/28px → get 15px/17.5px */
+}
+.checkout-section h3 {
+    font-size: 1.05rem;   /* expect ~17px → get 10.5px */
+}
+.checkout-section input[type="text"] {
+    font-size: .95rem;    /* expect ~15px → get 9.5px */
+    padding: .65rem .8rem;
+}
+
 .review-form-card input[type="text"]:focus,
 .review-form-card textarea:focus {
     border-color: #ff6347;
@@ -1504,3 +1518,434 @@ button {
             font-size: 1.4rem;
             margin-bottom: 2rem;
         }
+
+
+        /* =========================================================
+   Admin dashboard styles
+   NOTE: main site uses html { font-size: 62.5% } → 1rem = 10px.
+   All rem values below follow that scale.
+   ========================================================= */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { font-size: 62.5%; }
+
+body {
+    font-family: 'Inter', Arial, sans-serif;
+    color: #1f2233;
+    background: #f4f5f9;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: block;
+    padding: 0;
+}
+
+a { text-decoration: none; color: inherit; }
+img { max-width: 100%; display: block; }
+
+/* =========================================================
+   Navbar (reused from main style.css so it looks identical)
+   ========================================================= */
+.navbar {
+    background-color: #333;
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+.nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.4rem 3rem;
+    gap: 2rem;
+}
+.logo {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+}
+.nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+    font-size: 1.6rem;
+}
+.nav-links a {
+    color: #fff;
+    transition: color 0.3s ease;
+}
+.nav-links a:hover,
+.nav-links a.active { color: #ff6347; }
+.nav-btn { display: flex; align-items: center; gap: 1rem; }
+.nav-btn button {
+    background: #ff6347;
+    color: #fff;
+    border: none;
+    padding: 0.8rem 1.6rem;
+    font-size: 1.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+.nav-btn button:hover { background: #e85539; transform: translateY(-1px); }
+.cart {
+    position: relative;
+    color: #fff;
+    font-size: 1.8rem;
+    display: inline-flex;
+    align-items: center;
+    padding-right: 1rem;
+}
+.cart-count {
+    position: absolute;
+    top: -8px;
+    right: -10px;
+    background: #ff6347;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+/* =========================================================
+   Page layout
+   ========================================================= */
+.admin-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 2rem 6rem;
+}
+
+.admin-header {
+    text-align: center;
+    margin-bottom: 3.4rem;
+}
+.admin-header h1 {
+    font-size: clamp(2.6rem, 5vw, 3.4rem);
+    color: #111;
+    margin-bottom: 0.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.admin-header p {
+    font-size: 1.5rem;
+    color: #6b7080;
+}
+
+/* =========================================================
+   Top bar (signed-in-as strip)
+   ========================================================= */
+.admin-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 3rem;
+    background: #fff;
+    border: 1px solid #e7e9f0;
+    border-radius: 14px;
+    padding: 1.6rem 2.2rem;
+}
+.admin-topbar .who {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    font-size: 1.4rem;
+    color: #4a4f63;
+}
+.admin-topbar .who strong { color: #111; }
+.admin-topbar .who .pill-admin { margin-left: 0.4rem; }
+
+.btn-link {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #ff6347;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.8rem 1.4rem;
+    border-radius: 8px;
+    transition: background 0.18s ease;
+}
+.btn-link:hover { background: #fff6f4; }
+
+/* =========================================================
+   Stats strip
+   ========================================================= */
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.4rem;
+    margin-bottom: 3rem;
+}
+.admin-stat {
+    background: #fff;
+    border: 1px solid #e7e9f0;
+    border-radius: 14px;
+    padding: 2rem 1.6rem;
+    text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.admin-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px -22px rgba(20, 25, 60, 0.35);
+}
+.admin-stat i {
+    font-size: 2.2rem;
+    color: #ff6347;
+    margin-bottom: 0.8rem;
+    display: block;
+}
+.admin-stat .value {
+    display: block;
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 0.2rem;
+    line-height: 1;
+}
+.admin-stat .label {
+    font-size: 1.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8c90a0;
+}
+
+/* =========================================================
+   Sections (card containers)
+   ========================================================= */
+.admin-section {
+    background: #fff;
+    border: 1px solid #e7e9f0;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 2.4rem;
+}
+.admin-section header {
+    padding: 1.8rem 2.2rem;
+    border-bottom: 1px solid #eef0f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.admin-section header h2 {
+    font-size: 1.8rem;
+    color: #111;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 700;
+}
+.admin-section header h2 i { color: #ff6347; }
+.admin-section header .count {
+    font-size: 1.3rem;
+    color: #7b8095;
+    font-weight: 500;
+}
+
+/* =========================================================
+   Tables
+   ========================================================= */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.4rem;
+}
+.admin-table th,
+.admin-table td {
+    text-align: left;
+    padding: 1.4rem 2.2rem;
+    border-bottom: 1px solid #f1f3f8;
+    vertical-align: middle;
+}
+.admin-table th {
+    background: #fafbfd;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7b8095;
+    font-weight: 700;
+}
+.admin-table tbody tr:last-child td { border-bottom: 0; }
+.admin-table tbody tr:hover { background: #fafbfd; }
+
+/* User cell (avatar + name + email) */
+.user-cell { display: flex; align-items: center; gap: 1.2rem; }
+.user-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff6347, #d63a1f);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 1.4rem;
+    flex: none;
+    text-transform: uppercase;
+}
+.user-name {
+    font-weight: 600;
+    color: #111;
+    font-size: 1.4rem;
+    margin-bottom: 0.1rem;
+}
+.user-email {
+    font-size: 1.25rem;
+    color: #8c90a0;
+}
+
+/* =========================================================
+   Pills (role badges)
+   ========================================================= */
+.pill {
+    display: inline-block;
+    font-size: 1.15rem;
+    font-weight: 700;
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.pill-admin    { background: #eef2fd; color: #28418d; }
+.pill-customer { background: #eaf7ef; color: #17603c; }
+.pill-seller   { background: #fff4e6; color: #9c5315; }
+
+/* =========================================================
+   Status badges
+   ========================================================= */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+}
+.status-approved { background: #e8f8ee; color: #17603c; }
+.status-pending  { background: #fff4e6; color: #9c5315; }
+.status-rejected { background: #fdeded; color: #9c2626; }
+
+/* =========================================================
+   Action buttons (Approve / Reject / Revoke)
+   ========================================================= */
+.actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+.btn-mini {
+    font-family: inherit;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.btn-mini.approve {
+    background: #1e9e5a;
+    color: #fff;
+}
+.btn-mini.approve:hover {
+    background: #178048;
+    transform: translateY(-1px);
+}
+.btn-mini.reject {
+    background: #fff;
+    color: #c33;
+    border-color: #f3bdbd;
+}
+.btn-mini.reject:hover {
+    background: #fdeded;
+    transform: translateY(-1px);
+}
+
+/* =========================================================
+   Empty states
+   ========================================================= */
+.admin-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #8c90a0;
+    font-size: 1.4rem;
+}
+.admin-empty i {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+    color: #d5d9e4;
+}
+
+/* =========================================================
+   Alerts / flash messages
+   ========================================================= */
+.alert {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1.3rem 1.5rem;
+    border-radius: 10px;
+    font-size: 1.35rem;
+    margin-bottom: 1.8rem;
+    border: 1px solid transparent;
+    line-height: 1.5;
+}
+.alert i { font-size: 1.6rem; margin-top: 2px; }
+.alert-success { background: #e8f8ee; color: #17603c; border-color: #b6e2c7; }
+.alert-error   { background: #fdeded; color: #9c2626; border-color: #f3bdbd; }
+.alert-info    { background: #eef2fd; color: #28418d; border-color: #c3cff5; }
+.alert ul { margin: 0; padding-left: 1.8rem; }
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+@media (max-width: 720px) {
+    .nav-inner { padding: 1.2rem 1.6rem; gap: 1rem; }
+    .nav-links { gap: 1.2rem; font-size: 1.4rem; }
+    .logo { font-size: 1.7rem; }
+    .nav-btn button { padding: 0.6rem 1rem; font-size: 1.2rem; }
+
+    .admin-page { padding: 3rem 1.4rem 5rem; }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 1.2rem 1.4rem;
+        font-size: 1.3rem;
+    }
+    .admin-table th:nth-child(4),
+    .admin-table td:nth-child(4) { display: none; } /* hide "Registered" column on phones */
+
+    .admin-section header { padding: 1.4rem 1.6rem; }
+    .admin-topbar { padding: 1.4rem 1.6rem; }
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: .4rem 1rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.status-pending   { background: #fff4e6; color: #9c5315; }
+.status-preparing { background: #eef2fd; color: #28418d; }
+.status-shipped   { background: #e7f6ec; color: #146b3a; }
+.status-delivered { background: #d4f4df; color: #0f5a30; }
+.status-cancelled { background: #fdeded; color: #9c2626; }

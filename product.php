@@ -1,10 +1,17 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
 
 /* =========================================================
-   Load seed reviews (optional — falls back to empty)
+   Merge demo catalog + seller uploads, then normalize.
+   ========================================================= */
+$products = array_values(get_all_products($products));
+normalize_products($products);
+
+/* =========================================================
+   Load seed reviews (optional)
    ========================================================= */
 $seedReviews = [];
 $reviewsFile = __DIR__ . '/reviews-data.php';
@@ -24,6 +31,7 @@ foreach ($products as $p) {
         break;
     }
 }
+unset($p);
 
 /* =========================================================
    Handle the review form (POST)
@@ -94,17 +102,19 @@ foreach ($reviews as $r) {
 }
 
 /* =========================================================
-   Related products
+   Related products (same category, excluding current)
    ========================================================= */
 $related = [];
 if ($product) {
     foreach ($products as $p) {
-        if ((int) $p['id'] !== (int) $product['id'] && $p['category'] === $product['category']) {
+        if ((int) $p['id'] !== (int) $product['id']
+            && ($p['category'] ?? '') === ($product['category'] ?? '')) {
             $related[] = $p;
         }
     }
     $related = array_slice($related, 0, 4);
 }
+unset($p);
 
 /* =========================================================
    Cart count for navbar
@@ -117,33 +127,18 @@ if (!empty($_SESSION['cart'])) {
 }
 
 /* =========================================================
-   Helpers
+   time_ago() — page-specific helper. format_price() and
+   render_stars() now live in auth.php.
    ========================================================= */
-function format_price($n) {
-    return '$' . number_format($n, 2);
-}
-
-function render_stars($rating) {
-    $full  = floor($rating);
-    $half  = ($rating - $full) >= 0.5;
-    $empty = 5 - $full - ($half ? 1 : 0);
-
-    $html = '';
-    for ($i = 0; $i < $full;  $i++) $html .= '<i class="fa-solid fa-star"></i>';
-    if ($half)                      $html .= '<i class="fa-solid fa-star-half-stroke"></i>';
-    for ($i = 0; $i < $empty; $i++) $html .= '<i class="fa-regular fa-star"></i>';
-    return $html;
-}
-
 function time_ago($datetime) {
     $ts = strtotime($datetime);
     if (!$ts) return $datetime;
     $diff = time() - $ts;
 
-    if ($diff < 60)         return 'Just now';
-    if ($diff < 3600)       return floor($diff / 60) . ' min ago';
-    if ($diff < 86400)      return floor($diff / 3600) . ' h ago';
-    if ($diff < 86400 * 30) return floor($diff / 86400) . ' d ago';
+    if ($diff < 60)          return 'Just now';
+    if ($diff < 3600)        return floor($diff / 60) . ' min ago';
+    if ($diff < 86400)       return floor($diff / 3600) . ' h ago';
+    if ($diff < 86400 * 30)  return floor($diff / 86400) . ' d ago';
     return date('M j, Y', $ts);
 }
 ?>
@@ -171,17 +166,27 @@ function time_ago($datetime) {
             <div class="nav-btn">
                 <a href="cart.php" class="cart" aria-label="Cart">
                     <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count"><?= $cartCount ?></span>
+                    <span class="cart-count"><?= (int) $cartCount ?></span>
                 </a>
-                <button onclick="location.href='login.php'">Login</button>
-                <button onclick="location.href='register.php'" class="reg">Register</button>
+
+                <?php if (is_logged_in()): ?>
+                    <?php $u = current_user(); ?>
+                    <?php if (($u['role'] ?? '') === 'seller'): ?>
+                        <button onclick="location.href='seller/index.php'">My shop</button>
+                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                        <button onclick="location.href='admin/index.php'">Admin</button>
+                    <?php endif; ?>
+                    <button onclick="location.href='logout.php'">Sign out</button>
+                <?php else: ?>
+                    <button onclick="location.href='login.php'">Login</button>
+                    <button onclick="location.href='register.php'" class="reg">Register</button>
+                <?php endif; ?>
             </div>
         </div>
     </nav>
 
     <main class="products-page">
         <?php if (!$product): ?>
-            <!-- ---------- Product not found ---------- -->
             <div class="empty-state">
                 <i class="fa-solid fa-box-open"></i>
                 <h3>Product not found</h3>
@@ -191,6 +196,23 @@ function time_ago($datetime) {
                 </p>
             </div>
         <?php else: ?>
+            <?php
+                /* Pull fields into locals with safe defaults */
+                $pid       = (int) ($product['id'] ?? 0);
+                $pname     = $product['name']        ?? 'Untitled';
+                $pcat      = $product['category']    ?? '';
+                $pdesc     = $product['description'] ?? '';
+                $pprice    = (float) ($product['price'] ?? 0);
+                $pold      = $product['oldPrice']    ?? null;
+                $prating   = (float) ($product['rating'] ?? 0);
+                $pinStock  = !empty($product['inStock']);
+                $pimage    = $product['image_url']   ?? '';
+                $psource   = $product['source']      ?? '';
+                $pseller   = $product['seller_name'] ?? 'Seller';
+                $plocation = $product['location']    ?? '';
+
+                $displayRating = $avgRating > 0 ? $avgRating : $prating;
+            ?>
 
             <!-- ---------- Breadcrumb ---------- -->
             <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -198,68 +220,89 @@ function time_ago($datetime) {
                 <span>/</span>
                 <a href="products.php">Products</a>
                 <span>/</span>
-                <a href="products.php?category=<?= urlencode($product['category']) ?>">
-                    <?= htmlspecialchars($product['category']) ?>
+                <a href="products.php?category=<?= urlencode($pcat) ?>">
+                    <?= htmlspecialchars($pcat) ?>
                 </a>
                 <span>/</span>
-                <span class="current"><?= htmlspecialchars($product['name']) ?></span>
+                <span class="current"><?= htmlspecialchars($pname) ?></span>
             </nav>
 
             <!-- ---------- Product detail ---------- -->
             <section class="product-detail">
                 <div class="product-detail-image">
                     <img
-                        src="<?= htmlspecialchars($product['image']) ?>"
-                        alt="<?= htmlspecialchars($product['name']) ?>"
+                        src="<?= htmlspecialchars($pimage) ?>"
+                        alt="<?= htmlspecialchars($pname) ?>"
+                        loading="lazy"
                     >
-                    <?php if ($product['oldPrice']): ?>
+                    <?php if (!empty($pold)): ?>
                         <span class="badge sale">Sale</span>
                     <?php endif; ?>
-                    <?php if (!$product['inStock']): ?>
+                    <?php if (!$pinStock): ?>
                         <span class="badge out">Out of stock</span>
+                    <?php endif; ?>
+                    <?php if ($psource === 'seller'): ?>
+                        <span class="badge" style="background:#111; top:auto; bottom:10px; left:10px;">
+                            By <?= htmlspecialchars($pseller) ?>
+                        </span>
                     <?php endif; ?>
                 </div>
 
                 <div class="product-detail-info">
-                    <p class="product-category"><?= htmlspecialchars($product['category']) ?></p>
-                    <h1 class="product-detail-name"><?= htmlspecialchars($product['name']) ?></h1>
+                    <p class="product-category"><?= htmlspecialchars($pcat) ?></p>
+                    <h1 class="product-detail-name"><?= htmlspecialchars($pname) ?></h1>
 
                     <div class="product-rating">
-                        <span class="stars"><?= render_stars($avgRating ?: $product['rating']) ?></span>
-                        <span class="rating-value">
-                            <?= number_format($avgRating ?: $product['rating'], 1) ?>
-                        </span>
+                        <span class="stars"><?= render_stars($displayRating) ?></span>
+                        <span class="rating-value"><?= number_format($displayRating, 1) ?></span>
                         <a href="#reviews" class="rating-link">
                             (<?= $reviewCount ?> review<?= $reviewCount === 1 ? '' : 's' ?>)
                         </a>
                     </div>
 
                     <div class="product-detail-price">
-                        <span class="price-current"><?= format_price($product['price']) ?></span>
-                        <?php if ($product['oldPrice']): ?>
-                            <span class="price-old"><?= format_price($product['oldPrice']) ?></span>
+                        <span class="price-current"><?= format_price($pprice) ?></span>
+                        <?php if (!empty($pold)): ?>
+                            <span class="price-old"><?= format_price($pold) ?></span>
                             <span class="price-save">
-                                Save <?= format_price($product['oldPrice'] - $product['price']) ?>
+                                Save <?= format_price($pold - $pprice) ?>
                             </span>
                         <?php endif; ?>
                     </div>
 
-                    <p class="product-detail-desc"><?= htmlspecialchars($product['description']) ?></p>
+                    <p class="product-detail-desc"><?= htmlspecialchars($pdesc) ?></p>
 
                     <ul class="product-meta">
-                        <li><i class="fa-solid fa-tag"></i> Category: <strong><?= htmlspecialchars($product['category']) ?></strong></li>
                         <li>
-                            <i class="fa-solid fa-circle-check" style="color: <?= $product['inStock'] ? '#1e9e5a' : '#c33' ?>"></i>
-                            <?= $product['inStock'] ? 'In stock — ships within 24h' : 'Currently out of stock' ?>
+                            <i class="fa-solid fa-tag"></i>
+                            Category: <strong><?= htmlspecialchars($pcat) ?></strong>
+                        </li>
+
+                        <?php if ($psource === 'seller'): ?>
+                            <li>
+                                <i class="fa-solid fa-store"></i>
+                                Sold by <strong><?= htmlspecialchars($pseller) ?></strong>
+                            </li>
+                            <?php if ($plocation !== ''): ?>
+                                <li>
+                                    <i class="fa-solid fa-location-dot"></i>
+                                    Ships from <strong><?= htmlspecialchars($plocation) ?></strong>
+                                </li>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
+                        <li>
+                            <i class="fa-solid fa-circle-check" style="color: <?= $pinStock ? '#1e9e5a' : '#c33' ?>"></i>
+                            <?= $pinStock ? 'In stock — ships within 24h' : 'Currently out of stock' ?>
                         </li>
                         <li><i class="fa-solid fa-truck-fast"></i> Free delivery on orders over $50</li>
                         <li><i class="fa-solid fa-rotate-left"></i> 30-day easy returns</li>
                     </ul>
 
                     <div class="product-detail-actions">
-                        <?php if ($product['inStock']): ?>
+                        <?php if ($pinStock): ?>
                             <form action="cart.php" method="post">
-                                <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
+                                <input type="hidden" name="id" value="<?= $pid ?>">
                                 <button class="btn btn-primary btn-lg" type="submit">
                                     <i class="fa-solid fa-cart-plus"></i> Add to Cart
                                 </button>
@@ -324,14 +367,14 @@ function time_ago($datetime) {
                                 <div class="alert alert-error">
                                     <i class="fa-solid fa-circle-exclamation"></i>
                                     <ul>
-                                        <?php foreach ($errors as $e): ?>
-                                            <li><?= htmlspecialchars($e) ?></li>
+                                        <?php foreach ($errors as $err): ?>
+                                            <li><?= htmlspecialchars($err) ?></li>
                                         <?php endforeach; ?>
                                     </ul>
                                 </div>
                             <?php endif; ?>
 
-                            <form method="post" action="product.php?id=<?= (int) $product['id'] ?>#reviews">
+                            <form method="post" action="product.php?id=<?= $pid ?>#reviews">
                                 <label>
                                     Your name
                                     <input
@@ -390,20 +433,26 @@ function time_ago($datetime) {
                             </div>
                         <?php else: ?>
                             <?php foreach ($reviews as $r): ?>
+                                <?php
+                                    $rauthor  = $r['author']  ?? 'Anonymous';
+                                    $rrating  = (int) ($r['rating'] ?? 0);
+                                    $rcomment = $r['comment'] ?? '';
+                                    $rdate    = $r['date']    ?? '';
+                                ?>
                                 <article class="review-item">
                                     <header class="review-head">
                                         <div class="review-avatar">
-                                            <?= htmlspecialchars(mb_strtoupper(mb_substr($r['author'], 0, 1))) ?>
+                                            <?= htmlspecialchars(mb_strtoupper(mb_substr($rauthor, 0, 1))) ?>
                                         </div>
                                         <div class="review-meta">
-                                            <strong><?= htmlspecialchars($r['author']) ?></strong>
+                                            <strong><?= htmlspecialchars($rauthor) ?></strong>
                                             <div class="review-stars">
-                                                <?= render_stars($r['rating']) ?>
-                                                <span class="review-date">· <?= time_ago($r['date']) ?></span>
+                                                <?= render_stars($rrating) ?>
+                                                <span class="review-date">· <?= time_ago($rdate) ?></span>
                                             </div>
                                         </div>
                                     </header>
-                                    <p class="review-body"><?= nl2br(htmlspecialchars($r['comment'])) ?></p>
+                                    <p class="review-body"><?= nl2br(htmlspecialchars($rcomment)) ?></p>
                                 </article>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -416,36 +465,48 @@ function time_ago($datetime) {
                 <section class="related-section">
                     <header class="featured-header">
                         <h2>You might also like</h2>
-                        <p>More <?= htmlspecialchars($product['category']) ?> picks.</p>
+                        <p>More <?= htmlspecialchars($pcat) ?> picks.</p>
                     </header>
 
                     <div class="product-grid">
                         <?php foreach ($related as $p): ?>
+                            <?php
+                                $rid      = (int) ($p['id'] ?? 0);
+                                $rname    = $p['name']        ?? 'Untitled';
+                                $rcat     = $p['category']    ?? '';
+                                $rprice   = (float) ($p['price'] ?? 0);
+                                $rold     = $p['oldPrice']    ?? null;
+                                $rimage   = $p['image_url']   ?? '';
+                                $rinStock = !empty($p['inStock']);
+                            ?>
                             <article class="product-card">
-                                <a href="product.php?id=<?= (int) $p['id'] ?>" class="product-image-link">
+                                <a href="product.php?id=<?= $rid ?>" class="product-image-link">
                                     <div class="product-image">
                                         <img
-                                            src="<?= htmlspecialchars($p['image']) ?>"
-                                            alt="<?= htmlspecialchars($p['name']) ?>"
+                                            src="<?= htmlspecialchars($rimage) ?>"
+                                            alt="<?= htmlspecialchars($rname) ?>"
                                             loading="lazy"
                                         >
-                                        <?php if ($p['oldPrice']): ?>
+                                        <?php if (!empty($rold)): ?>
                                             <span class="badge sale">Sale</span>
+                                        <?php endif; ?>
+                                        <?php if (!$rinStock): ?>
+                                            <span class="badge out">Out of stock</span>
                                         <?php endif; ?>
                                     </div>
                                 </a>
                                 <div class="product-body">
-                                    <p class="product-category"><?= htmlspecialchars($p['category']) ?></p>
+                                    <p class="product-category"><?= htmlspecialchars($rcat) ?></p>
                                     <h3 class="product-name">
-                                        <a href="product.php?id=<?= (int) $p['id'] ?>">
-                                            <?= htmlspecialchars($p['name']) ?>
+                                        <a href="product.php?id=<?= $rid ?>">
+                                            <?= htmlspecialchars($rname) ?>
                                         </a>
                                     </h3>
                                     <div class="product-footer">
                                         <div class="product-price">
-                                            <span class="price-current"><?= format_price($p['price']) ?></span>
+                                            <span class="price-current"><?= format_price($rprice) ?></span>
                                         </div>
-                                        <a href="product.php?id=<?= (int) $p['id'] ?>" class="add-to-cart">
+                                        <a href="product.php?id=<?= $rid ?>" class="add-to-cart">
                                             View
                                         </a>
                                     </div>

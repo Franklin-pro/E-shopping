@@ -1,76 +1,72 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
 
 /* =========================================================
-   Read + sanitize query-string inputs
+   Merge demo catalog + seller uploads, then normalize.
+   ========================================================= */
+$products = array_values(get_all_products($products));
+normalize_products($products);
+
+/* =========================================================
+   Query string inputs
    ========================================================= */
 $search   = trim($_GET['q']        ?? '');
 $category = trim($_GET['category'] ?? 'All');
 $sort     = trim($_GET['sort']     ?? 'default');
 
 /* =========================================================
-   Build the category list
+   Build category list
    ========================================================= */
 $categories = ['All'];
 foreach ($products as $p) {
-    if (!in_array($p['category'], $categories, true)) {
-        $categories[] = $p['category'];
+    $cat = $p['category'] ?? '';
+    if ($cat !== '' && !in_array($cat, $categories, true)) {
+        $categories[] = $cat;
     }
 }
+unset($p);
 
 /* =========================================================
-   Filter: search + category
+   Filter
    ========================================================= */
 $filtered = array_filter($products, function ($p) use ($search, $category) {
-    $matchesCategory = ($category === 'All' || $p['category'] === $category);
+    $matchesCategory = ($category === 'All' || ($p['category'] ?? '') === $category);
 
     if ($search === '') {
         return $matchesCategory;
     }
 
-    $haystack = strtolower($p['name'] . ' ' . $p['category'] . ' ' . $p['description']);
-    $needle   = strtolower($search);
+    $haystack = strtolower(
+        ($p['name'] ?? '') . ' ' .
+        ($p['category'] ?? '') . ' ' .
+        ($p['description'] ?? '')
+    );
+    $needle = strtolower($search);
 
     return $matchesCategory && str_contains($haystack, $needle);
 });
+
+$filtered = array_values($filtered);
 
 /* =========================================================
    Sort
    ========================================================= */
 usort($filtered, function ($a, $b) use ($sort) {
     switch ($sort) {
-        case 'price-asc':   return $a['price'] <=> $b['price'];
-        case 'price-desc':  return $b['price'] <=> $a['price'];
-        case 'name-asc':    return strcasecmp($a['name'], $b['name']);
-        case 'rating-desc': return $b['rating'] <=> $a['rating'];
+        case 'price-asc':   return ($a['price'] ?? 0) <=> ($b['price'] ?? 0);
+        case 'price-desc':  return ($b['price'] ?? 0) <=> ($a['price'] ?? 0);
+        case 'name-asc':    return strcasecmp($a['name'] ?? '', $b['name'] ?? '');
+        case 'rating-desc': return ($b['rating'] ?? 0) <=> ($a['rating'] ?? 0);
         default:            return 0;
     }
 });
 
 /* =========================================================
-   Helpers
+   build_url — page-specific helper
    ========================================================= */
-function format_price($n) {
-    return '$' . number_format($n, 2);
-}
-
-function render_stars($rating) {
-    $full  = floor($rating);
-    $half  = ($rating - $full) >= 0.5;
-    $empty = 5 - $full - ($half ? 1 : 0);
-
-    $html = '';
-    for ($i = 0; $i < $full;  $i++) $html .= '<i class="fa-solid fa-star"></i>';
-    if ($half)                      $html .= '<i class="fa-solid fa-star-half-stroke"></i>';
-    for ($i = 0; $i < $empty; $i++) $html .= '<i class="fa-regular fa-star"></i>';
-    return $html;
-}
-
-/**
- * Build a URL preserving current filters but overriding some.
- */
 function build_url(array $overrides = []) {
     $params = array_merge([
         'q'        => $_GET['q']        ?? '',
@@ -86,7 +82,7 @@ function build_url(array $overrides = []) {
 }
 
 /* =========================================================
-   Cart count for the navbar badge
+   Cart count
    ========================================================= */
 $cartCount = 0;
 if (!empty($_SESSION['cart'])) {
@@ -121,10 +117,21 @@ $totalResults = count($filtered);
             <div class="nav-btn">
                 <a href="cart.php" class="cart" aria-label="Cart">
                     <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count" id="cartCount"><?= $cartCount ?></span>
+                    <span class="cart-count" id="cartCount"><?= (int) $cartCount ?></span>
                 </a>
-                <button onclick="location.href='login.php'">Login</button>
-                <button onclick="location.href='register.php'" class="reg">Register</button>
+
+                <?php if (is_logged_in()): ?>
+                    <?php $u = current_user(); ?>
+                    <?php if (($u['role'] ?? '') === 'seller'): ?>
+                        <button onclick="location.href='seller/index.php'">My shop</button>
+                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                        <button onclick="location.href='admin/index.php'">Admin</button>
+                    <?php endif; ?>
+                    <button onclick="location.href='logout.php'">Sign out</button>
+                <?php else: ?>
+                    <button onclick="location.href='login.php'">Login</button>
+                    <button onclick="location.href='register.php'" class="reg">Register</button>
+                <?php endif; ?>
             </div>
         </div>
     </nav>
@@ -135,7 +142,7 @@ $totalResults = count($filtered);
             <p>Browse our catalog — search, filter by category, and sort by price.</p>
         </header>
 
-        <!-- Search + sort — GET form so filters live in the URL -->
+        <!-- Search + sort -->
         <form class="products-toolbar" method="get" action="products.php">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -194,50 +201,66 @@ $totalResults = count($filtered);
         <?php else: ?>
             <section class="product-grid">
                 <?php foreach ($filtered as $p): ?>
-                    <article class="product-card" data-id="<?= (int) $p['id'] ?>">
-                        <!-- Image links to the detail page -->
-                        <a href="product.php?id=<?= (int) $p['id'] ?>" class="product-image-link">
+                    <?php
+                        $pid      = (int) ($p['id'] ?? 0);
+                        $pname    = $p['name']        ?? 'Untitled';
+                        $pcat     = $p['category']    ?? '';
+                        $pdesc    = $p['description'] ?? '';
+                        $pprice   = (float) ($p['price'] ?? 0);
+                        $pold     = $p['oldPrice']    ?? null;
+                        $prating  = (float) ($p['rating'] ?? 0);
+                        $pinStock = !empty($p['inStock']);
+                        $pimage   = $p['image_url']   ?? '';
+                        $psource  = $p['source']      ?? '';
+                        $pseller  = $p['seller_name'] ?? 'Seller';
+                    ?>
+                    <article class="product-card" data-id="<?= $pid ?>">
+                        <a href="product.php?id=<?= $pid ?>" class="product-image-link">
                             <div class="product-image">
                                 <img
-                                    src="<?= htmlspecialchars($p['image']) ?>"
-                                    alt="<?= htmlspecialchars($p['name']) ?>"
+                                    src="<?= htmlspecialchars($pimage) ?>"
+                                    alt="<?= htmlspecialchars($pname) ?>"
                                     loading="lazy"
                                 >
-                                <?php if ($p['oldPrice']): ?>
+                                <?php if (!empty($pold)): ?>
                                     <span class="badge sale">Sale</span>
                                 <?php endif; ?>
-                                <?php if (!$p['inStock']): ?>
+                                <?php if (!$pinStock): ?>
                                     <span class="badge out">Out of stock</span>
+                                <?php endif; ?>
+                                <?php if ($psource === 'seller'): ?>
+                                    <span class="badge" style="background:#111; top:auto; bottom:10px; left:10px;">
+                                        By <?= htmlspecialchars($pseller) ?>
+                                    </span>
                                 <?php endif; ?>
                             </div>
                         </a>
 
                         <div class="product-body">
-                            <p class="product-category"><?= htmlspecialchars($p['category']) ?></p>
+                            <p class="product-category"><?= htmlspecialchars($pcat) ?></p>
                             <h3 class="product-name">
-                                <!-- Name also links to the detail page -->
-                                <a href="product.php?id=<?= (int) $p['id'] ?>">
-                                    <?= htmlspecialchars($p['name']) ?>
+                                <a href="product.php?id=<?= $pid ?>">
+                                    <?= htmlspecialchars($pname) ?>
                                 </a>
                             </h3>
-                            <p class="product-desc"><?= htmlspecialchars($p['description']) ?></p>
+                            <p class="product-desc"><?= htmlspecialchars($pdesc) ?></p>
 
                             <div class="product-rating">
-                                <span class="stars"><?= render_stars($p['rating']) ?></span>
-                                <span class="rating-value"><?= number_format($p['rating'], 1) ?></span>
+                                <span class="stars"><?= render_stars($prating) ?></span>
+                                <span class="rating-value"><?= number_format($prating, 1) ?></span>
                             </div>
 
                             <div class="product-footer">
                                 <div class="product-price">
-                                    <span class="price-current"><?= format_price($p['price']) ?></span>
-                                    <?php if ($p['oldPrice']): ?>
-                                        <span class="price-old"><?= format_price($p['oldPrice']) ?></span>
+                                    <span class="price-current"><?= format_price($pprice) ?></span>
+                                    <?php if (!empty($pold)): ?>
+                                        <span class="price-old"><?= format_price($pold) ?></span>
                                     <?php endif; ?>
                                 </div>
 
-                                <?php if ($p['inStock']): ?>
+                                <?php if ($pinStock): ?>
                                     <form action="cart.php" method="post">
-                                        <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+                                        <input type="hidden" name="id" value="<?= $pid ?>">
                                         <button class="add-to-cart" type="submit">
                                             <i class="fa-solid fa-cart-plus"></i> Add
                                         </button>

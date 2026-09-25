@@ -1,41 +1,22 @@
 <?php
 session_start();
-// unset($_SESSION['cart']);
-// unset($_SESSION['orders']);
-// unset($_SESSION['reviews']);
-// header('Location: index.php');
-// exit;
-/* =========================================================
-   Load product catalog (so order items can be looked up,
-   though checkout already stored full item snapshots)
-   ========================================================= */
+
+require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
 
-$byId = [];
-foreach ($products as $p) {
-    $byId[(int) $p['id']] = $p;
-}
-
 /* =========================================================
-   Helpers
+   Merge demo catalog + seller uploads, then normalize.
+   Needed so order items (which carry image_url) render
+   correctly for both demo and seller products.
    ========================================================= */
-function format_price($n) {
-    return '$' . number_format($n, 2);
-}
-
-function status_label($payment) {
-    return $payment === 'card' ? 'Paid online' : 'Cash on delivery';
-}
-
-function status_class($payment) {
-    return $payment === 'card' ? 'status-paid' : 'status-pending';
-}
+$products = array_values(get_all_products($products));
+normalize_products($products);
 
 /* =========================================================
    Load orders from session (newest first)
    ========================================================= */
 $orders = $_SESSION['orders'] ?? [];
-$orders = array_reverse($orders, true);   // newest first
+$orders = array_reverse($orders, true);
 
 $orderCount = count($orders);
 
@@ -50,11 +31,22 @@ if (!empty($_SESSION['cart'])) {
 }
 
 /* =========================================================
-   Grand total across all orders (nice stat)
+   Grand total across all orders
    ========================================================= */
 $lifetimeTotal = 0;
 foreach ($orders as $o) {
-    $lifetimeTotal += (float) $o['total'];
+    $lifetimeTotal += (float) ($o['total'] ?? 0);
+}
+
+/* =========================================================
+   Payment label helpers (page-specific)
+   ========================================================= */
+function payment_label($payment) {
+    return $payment === 'card' ? 'Paid online' : 'Cash on delivery';
+}
+
+function payment_class($payment) {
+    return $payment === 'card' ? 'status-paid' : 'status-pending';
 }
 ?>
 <!DOCTYPE html>
@@ -65,7 +57,6 @@ foreach ($orders as $o) {
     <title>My Orders | E-SHOPPING</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
-  
 </head>
 <body>
     <nav class="navbar">
@@ -82,10 +73,21 @@ foreach ($orders as $o) {
             <div class="nav-btn">
                 <a href="cart.php" class="cart" aria-label="Cart">
                     <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count"><?= $cartCount ?></span>
+                    <span class="cart-count"><?= (int) $cartCount ?></span>
                 </a>
-                <button onclick="location.href='login.php'">Login</button>
-                <button onclick="location.href='register.php'" class="reg">Register</button>
+
+                <?php if (is_logged_in()): ?>
+                    <?php $u = current_user(); ?>
+                    <?php if (($u['role'] ?? '') === 'seller'): ?>
+                        <button onclick="location.href='seller/index.php'">My shop</button>
+                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                        <button onclick="location.href='admin/index.php'">Admin</button>
+                    <?php endif; ?>
+                    <button onclick="location.href='logout.php'">Sign out</button>
+                <?php else: ?>
+                    <button onclick="location.href='login.php'">Login</button>
+                    <button onclick="location.href='register.php'" class="reg">Register</button>
+                <?php endif; ?>
             </div>
         </div>
     </nav>
@@ -138,25 +140,42 @@ foreach ($orders as $o) {
             <div class="orders-list">
                 <?php foreach ($orders as $order): ?>
                     <?php
+                        /* Safe reads — never crash on a bad order */
+                        $oid      = $order['id']     ?? 'UNKNOWN';
+                        $odate    = $order['date']   ?? '';
+                        $ostatus  = $order['status'] ?? 'pending';
+                        $opayment = $order['payment'] ?? 'cod';
+                        $ototal   = (float) ($order['total'] ?? 0);
+                        $osubtot  = (float) ($order['subtotal'] ?? 0);
+                        $odeliv   = (float) ($order['delivery'] ?? 0);
+                        $ocust    = $order['customer'] ?? [];
+                        $oitems   = $order['items']    ?? [];
+
                         $itemCount = 0;
-                        foreach ($order['items'] as $row) {
-                            $itemCount += (int) $row['qty'];
+                        foreach ($oitems as $row) {
+                            $itemCount += (int) ($row['qty'] ?? 0);
                         }
+
+                        $ts       = $odate !== '' ? strtotime($odate) : false;
+                        $dateFmt  = $ts ? date('M j, Y · g:i A', $ts) : 'Unknown date';
+
+                        $firstProductId = (int) ($oitems[0]['product']['id'] ?? 0);
                     ?>
-                    <article class="order-card" data-order-id="<?= htmlspecialchars($order['id']) ?>">
+                    <article class="order-card" data-order-id="<?= htmlspecialchars($oid) ?>">
                         <header class="order-head" role="button" tabindex="0" aria-expanded="false">
                             <div class="order-head-left">
-                                <span class="order-id">#<?= htmlspecialchars($order['id']) ?></span>
-                                <span class="order-date">
-                                    Placed <?= date('M j, Y · g:i A', strtotime($order['date'])) ?>
-                                </span>
+                                <span class="order-id">#<?= htmlspecialchars($oid) ?></span>
+                                <span class="order-date">Placed <?= htmlspecialchars($dateFmt) ?></span>
                             </div>
 
                             <div class="order-head-right">
-                                <span class="order-status <?= status_class($order['payment']) ?>">
-                                    <?= status_label($order['payment']) ?>
+                                <span class="status-badge <?= e(order_status_class($ostatus)) ?>">
+                                    <?= e(order_status_label($ostatus)) ?>
                                 </span>
-                                <span class="order-total"><?= format_price($order['total']) ?></span>
+                                <span class="order-status <?= e(payment_class($opayment)) ?>">
+                                    <?= e(payment_label($opayment)) ?>
+                                </span>
+                                <span class="order-total"><?= format_price($ototal) ?></span>
                                 <i class="fa-solid fa-chevron-down order-chevron"></i>
                             </div>
                         </header>
@@ -165,24 +184,35 @@ foreach ($orders as $o) {
                             <div class="order-body-inner">
                                 <!-- Items -->
                                 <div class="order-items">
-                                    <?php foreach ($order['items'] as $row): ?>
+                                    <?php foreach ($oitems as $row): ?>
+                                        <?php
+                                            $prod      = $row['product'] ?? [];
+                                            $pname     = $prod['name']      ?? 'Product';
+                                            $pimage    = $prod['image_url'] ?? ('/seller/uploads/' . ($prod['image'] ?? ''));
+                                            $pcat      = $prod['category']  ?? '';
+                                            $pprice    = (float) ($prod['price'] ?? 0);
+                                            $qty       = (int)   ($row['qty']  ?? 0);
+                                            $line      = (float) ($row['line'] ?? 0);
+                                        ?>
                                         <div class="order-item">
                                             <img
-                                                src="<?= htmlspecialchars($row['product']['image']) ?>"
-                                                alt="<?= htmlspecialchars($row['product']['name']) ?>"
+                                                src="<?= htmlspecialchars($pimage) ?>"
+                                                alt="<?= htmlspecialchars($pname) ?>"
                                                 class="order-item-thumb"
                                             >
                                             <div class="order-item-info">
                                                 <div class="order-item-name">
-                                                    <?= htmlspecialchars($row['product']['name']) ?>
+                                                    <?= htmlspecialchars($pname) ?>
                                                 </div>
                                                 <div class="order-item-meta">
-                                                    <?= (int) $row['qty'] ?> × <?= format_price($row['product']['price']) ?>
-                                                    · <?= htmlspecialchars($row['product']['category']) ?>
+                                                    <?= $qty ?> × <?= format_price($pprice) ?>
+                                                    <?php if ($pcat !== ''): ?>
+                                                        · <?= htmlspecialchars($pcat) ?>
+                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                             <div class="order-item-line">
-                                                <?= format_price($row['line']) ?>
+                                                <?= format_price($line) ?>
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
@@ -192,19 +222,22 @@ foreach ($orders as $o) {
                                 <aside class="order-info">
                                     <div class="order-info-block">
                                         <h4>Shipped to</h4>
-                                        <strong><?= htmlspecialchars($order['customer']['fullName']) ?></strong>
-                                        <span><?= htmlspecialchars($order['customer']['address']) ?></span>
-                                        <span>
-                                            <?= htmlspecialchars($order['customer']['city']) ?>,
-                                            <?= htmlspecialchars($order['customer']['zip']) ?>
-                                        </span>
-                                        <span><?= htmlspecialchars($order['customer']['country']) ?></span>
+                                        <strong><?= htmlspecialchars($ocust['fullName'] ?? 'Unknown') ?></strong>
+                                        <?php if (!empty($ocust['address'])): ?><span><?= htmlspecialchars($ocust['address']) ?></span><?php endif; ?>
+                                        <?php if (!empty($ocust['city']) || !empty($ocust['zip'])): ?>
+                                            <span><?= htmlspecialchars($ocust['city'] ?? '') ?><?= !empty($ocust['city']) && !empty($ocust['zip']) ? ', ' : '' ?><?= htmlspecialchars($ocust['zip'] ?? '') ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($ocust['country'])): ?><span><?= htmlspecialchars($ocust['country']) ?></span><?php endif; ?>
                                     </div>
 
                                     <div class="order-info-block">
                                         <h4>Contact</h4>
-                                        <span><i class="fa-solid fa-envelope"></i> <?= htmlspecialchars($order['customer']['email']) ?></span>
-                                        <span><i class="fa-solid fa-phone"></i> <?= htmlspecialchars($order['customer']['phone']) ?></span>
+                                        <?php if (!empty($ocust['email'])): ?>
+                                            <span><i class="fa-solid fa-envelope"></i> <?= htmlspecialchars($ocust['email']) ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($ocust['phone'])): ?>
+                                            <span><i class="fa-solid fa-phone"></i> <?= htmlspecialchars($ocust['phone']) ?></span>
+                                        <?php endif; ?>
                                     </div>
 
                                     <div class="order-info-block">
@@ -212,22 +245,34 @@ foreach ($orders as $o) {
                                         <div class="order-summary-rows">
                                             <div class="row">
                                                 <span>Subtotal (<?= $itemCount ?> item<?= $itemCount === 1 ? '' : 's' ?>)</span>
-                                                <span><?= format_price($order['subtotal']) ?></span>
+                                                <span><?= format_price($osubtot) ?></span>
                                             </div>
                                             <div class="row">
                                                 <span>Delivery</span>
-                                                <span><?= $order['delivery'] > 0 ? format_price($order['delivery']) : '—' ?></span>
+                                                <span><?= $odeliv > 0 ? format_price($odeliv) : '—' ?></span>
                                             </div>
                                             <div class="row total">
                                                 <span>Total</span>
-                                                <span><?= format_price($order['total']) ?></span>
+                                                <span><?= format_price($ototal) ?></span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <a href="product.php?id=<?= (int) $order['items'][0]['product']['id'] ?>" class="btn btn-ghost-dark" style="width:100%; text-align:center; padding: 0.8rem 1.4rem; font-size: 1.3rem;">
-                                        <i class="fa-solid fa-rotate-right"></i> Buy it again
-                                    </a>
+                                    <!-- Actions -->
+                                    <div style="display:grid; gap:.8rem; margin-top:.4rem;">
+                                        <a href="download-order.php?order=<?= urlencode($oid) ?>"
+                                           class="btn btn-primary"
+                                           style="width:100%; text-align:center; padding: 0.8rem 1.4rem; font-size: 1.3rem;">
+                                            <i class="fa-solid fa-download"></i> Download receipt
+                                        </a>
+                                        <?php if ($firstProductId > 0): ?>
+                                            <a href="product.php?id=<?= $firstProductId ?>"
+                                               class="btn btn-ghost-dark"
+                                               style="width:100%; text-align:center; padding: 0.8rem 1.4rem; font-size: 1.3rem;">
+                                                <i class="fa-solid fa-rotate-right"></i> Buy it again
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </aside>
                             </div>
                         </div>
@@ -239,9 +284,7 @@ foreach ($orders as $o) {
     </main>
 
     <script>
-        /* =====================================================
-           Accordion — click a header to expand the order details
-           ===================================================== */
+        /* Accordion — click a header to expand the order details */
         document.querySelectorAll('.order-card').forEach((card) => {
             const head = card.querySelector('.order-head');
 
