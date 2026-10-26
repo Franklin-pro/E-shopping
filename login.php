@@ -46,7 +46,7 @@ $flashes = flash_get();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | G-SHOPPING</title>
+    <title>Login | Franklin</title>
     <link rel="stylesheet" href="auth-style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
 </head>
@@ -54,7 +54,7 @@ $flashes = flash_get();
     <div class="auth-shell">
         <!-- LEFT: Visual panel -->
         <aside class="auth-visual">
-            <a href="index.php" class="brand">G-SHOPPING</a>
+            <a href="index.php" class="brand">Franklin</a>
 
             <div class="visual-content">
                 <h2>Welcome back to your favorite shop.</h2>
@@ -63,12 +63,12 @@ $flashes = flash_get();
                 <ul class="visual-features">
                     <li><i class="fa-solid fa-shield-halved"></i> Secure session-based login</li>
                     <li><i class="fa-solid fa-truck-fast"></i> Track your orders in real time</li>
-                    <li><i class="fa-solid fa-store"></i> Sell on G-SHOPPING in minutes</li>
+                    <li><i class="fa-solid fa-store"></i> Sell on Franklin in minutes</li>
                 </ul>
             </div>
 
             <span style="font-size:1.25rem; opacity:.8; position:relative; z-index:1;">
-                © <?= date('Y') ?> G-SHOPPING
+                © <?= date('Y') ?> Franklin
             </span>
         </aside>
 

@@ -1,5 +1,5 @@
 /* =========================================================
-   G-SHOPPING — UI Enhancements
+   Franklin — UI Enhancements
    Toasts, animated confirm dialogs, cart badge bounce,
    card fade-in, and button ripple effects.
 

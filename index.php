@@ -4,21 +4,15 @@ session_start();
 require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
 
-/* =========================================================
-   Merge demo catalog + seller uploads, then normalize so
-   every product has image_url, rating, inStock, oldPrice.
-   ========================================================= */
+/* Merge demo catalog + seller uploads, then normalize */
 $products = array_values(get_all_products($products));
 normalize_products($products);
 
-/* =========================================================
-   Take only the first 6 products for the featured section
-   ========================================================= */
 $featured = array_slice($products, 0, 6);
+$spotlight = array_slice($products, 0, 3);          // hero visuals
+$categories = array_slice(array_values(array_unique(array_filter(array_column($products, 'category')))), 0, 6);
+$productCount = count($products);
 
-/* =========================================================
-   Cart count for the navbar badge
-   ========================================================= */
 $cartCount = 0;
 if (!empty($_SESSION['cart'])) {
     foreach ($_SESSION['cart'] as $qty) {
@@ -31,78 +25,128 @@ if (!empty($_SESSION['cart'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>G-SHOPPING</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Franklin — Quality products, delivered fast</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="stylesheet" href="home.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-inner">
-            <a href="index.php" class="logo">G-SHOPPING</a>
 
-            <ul class="nav-links">
-                <li><a href="index.php" class="active">Home</a></li>
-                <li><a href="products.php">Products</a></li>
-                <li><a href="orders.php">Orders</a></li>
-                <li><a href="contact.php">Contact</a></li>
-            </ul>
+<!-- ================= Navbar ================= -->
+<header class="fr-nav">
+    <div class="fr-wrap fr-nav-inner">
+        <a href="index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
 
-            <div class="nav-btn">
-                <a href="cart.php" class="cart" aria-label="Cart">
-                    <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count"><?= (int) $cartCount ?></span>
-                </a>
+        <nav class="fr-links" aria-label="Main">
+            <a href="index.php" class="is-active">Home</a>
+            <a href="products.php">Products</a>
+            <a href="orders.php">Orders</a>
+            <a href="contact.php">Contact</a>
+        </nav>
 
-                <?php if (is_logged_in()): ?>
-                    <?php $u = current_user(); ?>
-                    <?php if (($u['role'] ?? '') === 'seller'): ?>
-                        <button onclick="location.href='seller/index.php'">My shop</button>
-                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
-                        <button onclick="location.href='admin/index.php'">Admin</button>
-                    <?php endif; ?>
-                    <button onclick="location.href='logout.php'">Sign out</button>
-                <?php else: ?>
-                    <button onclick="location.href='login.php'">Login</button>
-                    <button onclick="location.href='register.php'" class="reg">Register</button>
+        <div class="fr-actions">
+            <a href="cart.php" class="fr-cart" aria-label="Cart, <?= (int) $cartCount ?> items">
+                <i class="fa-solid fa-bag-shopping"></i>
+                <?php if ($cartCount > 0): ?><span class="fr-cart-count"><?= (int) $cartCount ?></span><?php endif; ?>
+            </a>
+
+            <?php if (is_logged_in()): ?>
+                <?php $u = current_user(); ?>
+                <?php if (($u['role'] ?? '') === 'seller'): ?>
+                    <a href="seller/index.php" class="fr-btn fr-btn-quiet">My shop</a>
+                <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                    <a href="admin/index.php" class="fr-btn fr-btn-quiet">Admin</a>
                 <?php endif; ?>
-            </div>
+                <a href="logout.php" class="fr-btn fr-btn-dark">Sign out</a>
+            <?php else: ?>
+                <a href="login.php" class="fr-btn fr-btn-quiet">Log in</a>
+                <a href="register.php" class="fr-btn fr-btn-dark">Register</a>
+            <?php endif; ?>
         </div>
-    </nav>
+    </div>
+</header>
 
-    <!-- Hero -->
-    <section class="hero">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1>Welcome to G-SHOPPING</h1>
-            <p>Your one-stop shop for all your needs — quality products, fast delivery, and prices you'll love.</p>
-            <div class="hero-actions">
-                <a href="products.php" class="btn btn-primary">Shop Now</a>
-                <a href="about.php" class="btn btn-ghost">Learn More</a>
+<main>
+
+<!-- ================= Hero ================= -->
+<section class="fr-hero">
+    <div class="fr-wrap fr-hero-grid">
+        <div class="fr-hero-copy">
+            <p class="fr-pill"><i class="fa-solid fa-truck-fast"></i> Fast delivery on every order</p>
+            <h1>Everything you need, from sellers you can trust.</h1>
+            <p class="fr-lead">Browse <?= (int) $productCount ?> quality products at prices you'll love — add to cart in one click and track your order from the Orders page.</p>
+
+            <div class="fr-cta">
+                <a href="products.php" class="fr-btn fr-btn-primary fr-btn-lg">Shop now <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="about.php" class="fr-btn fr-btn-outline fr-btn-lg">Learn more</a>
             </div>
-        </div>
-    </section>
 
-    <!-- Featured products -->
-    <section class="featured-section">
-        <header class="featured-header">
-            <h2>Featured Products</h2>
-            <p>Handpicked items from our catalog just for you.</p>
-        </header>
+            <?php if (!empty($categories)): ?>
+                <div class="fr-cats" aria-label="Popular categories">
+                    <span>Popular:</span>
+                    <?php foreach ($categories as $c): ?>
+                        <a href="products.php?category=<?= urlencode($c) ?>"><?= htmlspecialchars($c) ?></a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="fr-hero-visual" aria-hidden="<?= empty($spotlight) ? 'true' : 'false' ?>">
+            <?php if (!empty($spotlight)): ?>
+                <?php foreach ($spotlight as $i => $s): ?>
+                    <a href="product.php?id=<?= (int) $s['id'] ?>" class="fr-tile fr-tile-<?= $i + 1 ?>">
+                        <img src="<?= htmlspecialchars($s['image_url'] ?? '') ?>" alt="<?= htmlspecialchars($s['name'] ?? '') ?>">
+                        <?php if ($i === 0): ?>
+                            <span class="fr-tile-tag">
+                                <strong><?= htmlspecialchars($s['name'] ?? '') ?></strong>
+                                <span><?= format_price((float) ($s['price'] ?? 0)) ?></span>
+                            </span>
+                        <?php endif; ?>
+                    </a>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="fr-tile fr-tile-1 fr-tile-empty"><i class="fa-solid fa-box-open"></i></div>
+            <?php endif; ?>
+        </div>
+    </div>
+</section>
+
+<!-- ================= Benefits ================= -->
+<section class="fr-benefits">
+    <div class="fr-wrap fr-benefits-grid">
+        <div><i class="fa-solid fa-truck-fast"></i><p><strong>Fast delivery</strong><span>Orders shipped promptly</span></p></div>
+        <div><i class="fa-solid fa-shield-halved"></i><p><strong>Secure checkout</strong><span>Your details stay protected</span></p></div>
+        <div><i class="fa-solid fa-store"></i><p><strong>Independent sellers</strong><span>Products from real shops</span></p></div>
+        <div><i class="fa-solid fa-headset"></i><p><strong>Real support</strong><span>Reach us from the Contact page</span></p></div>
+    </div>
+</section>
+
+<!-- ================= Featured ================= -->
+<section class="fr-section">
+    <div class="fr-wrap">
+        <div class="fr-section-head">
+            <div>
+                <h2>Featured products</h2>
+                <p>Handpicked items from our catalog.</p>
+            </div>
+            <a href="products.php" class="fr-link">View all products <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
 
         <?php if (empty($featured)): ?>
-            <div class="empty-state">
+            <div class="fr-empty">
                 <i class="fa-solid fa-box-open"></i>
                 <h3>No products yet</h3>
-                <p>Check back soon — our catalog is being filled.</p>
+                <p>The catalog is being filled. Check back soon.</p>
             </div>
         <?php else: ?>
-            <div class="product-grid featured-grid">
+            <div class="fr-grid">
                 <?php foreach ($featured as $p): ?>
                     <?php
                         $pid      = (int) ($p['id'] ?? 0);
                         $pname    = $p['name']        ?? 'Untitled';
                         $pcat     = $p['category']    ?? '';
-                        $pdesc    = $p['description'] ?? '';
                         $pprice   = (float) ($p['price'] ?? 0);
                         $pold     = $p['oldPrice']    ?? null;
                         $prating  = (float) ($p['rating'] ?? 0);
@@ -111,61 +155,38 @@ if (!empty($_SESSION['cart'])) {
                         $psource  = $p['source']      ?? '';
                         $pseller  = $p['seller_name'] ?? 'Seller';
                     ?>
-                    <article class="product-card" data-id="<?= $pid ?>">
-                        <a href="product.php?id=<?= $pid ?>" class="product-image-link">
-                            <div class="product-image">
-                                <img
-                                    src="<?= htmlspecialchars($pimage) ?>"
-                                    alt="<?= htmlspecialchars($pname) ?>"
-                                    loading="lazy"
-                                >
-                                <?php if (!empty($pold)): ?>
-                                    <span class="badge sale">Sale</span>
-                                <?php endif; ?>
-                                <?php if (!$pinStock): ?>
-                                    <span class="badge out">Out of stock</span>
-                                <?php endif; ?>
-                                <?php if ($psource === 'seller'): ?>
-                                    <span class="badge" style="background:#111; top:auto; bottom:10px; left:10px;">
-                                        By <?= htmlspecialchars($pseller) ?>
-                                    </span>
-                                <?php endif; ?>
-                            </div>
+                    <article class="fr-card" data-id="<?= $pid ?>">
+                        <a href="product.php?id=<?= $pid ?>" class="fr-card-img">
+                            <img src="<?= htmlspecialchars($pimage) ?>" alt="<?= htmlspecialchars($pname) ?>" loading="lazy">
+                            <?php if (!empty($pold)): ?><span class="fr-badge fr-badge-sale">Sale</span><?php endif; ?>
+                            <?php if (!$pinStock): ?><span class="fr-badge fr-badge-out">Out of stock</span><?php endif; ?>
                         </a>
 
-                        <div class="product-body">
-                            <p class="product-category"><?= htmlspecialchars($pcat) ?></p>
-                            <h3 class="product-name">
-                                <a href="product.php?id=<?= $pid ?>">
-                                    <?= htmlspecialchars($pname) ?>
-                                </a>
-                            </h3>
-                            <p class="product-desc"><?= htmlspecialchars($pdesc) ?></p>
+                        <div class="fr-card-body">
+                            <p class="fr-card-meta">
+                                <?= htmlspecialchars($pcat) ?>
+                                <?php if ($psource === 'seller'): ?><span>by <?= htmlspecialchars($pseller) ?></span><?php endif; ?>
+                            </p>
+                            <h3><a href="product.php?id=<?= $pid ?>"><?= htmlspecialchars($pname) ?></a></h3>
 
-                            <div class="product-rating">
+                            <div class="fr-rating">
                                 <span class="stars"><?= render_stars($prating) ?></span>
-                                <span class="rating-value"><?= number_format($prating, 1) ?></span>
+                                <span><?= number_format($prating, 1) ?></span>
                             </div>
 
-                            <div class="product-footer">
-                                <div class="product-price">
-                                    <span class="price-current"><?= format_price($pprice) ?></span>
-                                    <?php if (!empty($pold)): ?>
-                                        <span class="price-old"><?= format_price($pold) ?></span>
-                                    <?php endif; ?>
+                            <div class="fr-card-foot">
+                                <div class="fr-price">
+                                    <strong><?= format_price($pprice) ?></strong>
+                                    <?php if (!empty($pold)): ?><s><?= format_price($pold) ?></s><?php endif; ?>
                                 </div>
 
                                 <?php if ($pinStock): ?>
                                     <form action="cart.php" method="post">
                                         <input type="hidden" name="id" value="<?= $pid ?>">
-                                        <button class="add-to-cart" type="submit">
-                                            <i class="fa-solid fa-cart-plus"></i> Add
-                                        </button>
+                                        <button class="fr-add" type="submit"><i class="fa-solid fa-plus"></i> Add</button>
                                     </form>
                                 <?php else: ?>
-                                    <button class="add-to-cart" disabled>
-                                        <i class="fa-solid fa-cart-plus"></i> N/A
-                                    </button>
+                                    <button class="fr-add" disabled>Unavailable</button>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -173,12 +194,34 @@ if (!empty($_SESSION['cart'])) {
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+    </div>
+</section>
 
-        <div class="featured-cta">
-            <a href="products.php" class="btn btn-primary">
-                View All Products <i class="fa-solid fa-arrow-right"></i>
-            </a>
+<!-- ================= Seller band ================= -->
+<section class="fr-wrap">
+    <div class="fr-band">
+        <div>
+            <h2>Have something to sell?</h2>
+            <p>Open your shop on Franklin and reach shoppers the same day you upload.</p>
         </div>
-    </section>
+        <a href="register.php" class="fr-btn fr-btn-light fr-btn-lg">Create a seller account</a>
+    </div>
+</section>
+
+</main>
+
+<footer class="fr-footer">
+    <div class="fr-wrap fr-footer-inner">
+        <a href="index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
+        <nav aria-label="Footer">
+            <a href="products.php">Products</a>
+            <a href="orders.php">Orders</a>
+            <a href="about.php">About</a>
+            <a href="contact.php">Contact</a>
+        </nav>
+        <p>&copy; <?= date('Y') ?> Franklin</p>
+    </div>
+</footer>
+
 </body>
 </html>

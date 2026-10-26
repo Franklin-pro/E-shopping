@@ -4,9 +4,7 @@ session_start();
 require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
 
-/* =========================================================
-   Merge demo catalog + seller uploads, then normalize.
-   ========================================================= */
+/* Merge demo catalog + seller uploads, then normalize. */
 $products = array_values(get_all_products($products));
 normalize_products($products);
 
@@ -15,9 +13,7 @@ foreach ($products as $p) {
     $byId[(int) $p['id']] = $p;
 }
 
-/* =========================================================
-   Page-specific helper — reads the cart from session
-   ========================================================= */
+/* Page-specific helper — reads the cart from session */
 function get_cart_items($byId) {
     $cart     = $_SESSION['cart'] ?? [];
     $items    = [];
@@ -45,17 +41,13 @@ function get_cart_items($byId) {
     return [$items, $subtotal];
 }
 
-/* =========================================================
-   If we just placed an order, show the confirmation view
-   ========================================================= */
+/* If we just placed an order, show the confirmation view */
 $orderId = $_GET['order'] ?? '';
 $order   = ($orderId !== '' && isset($_SESSION['orders'][$orderId]))
     ? $_SESSION['orders'][$orderId]
     : null;
 
-/* =========================================================
-   Handle checkout form submission
-   ========================================================= */
+/* Handle checkout form submission */
 $errors = [];
 
 if (!$order && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -138,9 +130,7 @@ if (!$order && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-/* =========================================================
-   Cart for the form view (when there is no completed order)
-   ========================================================= */
+/* Cart for the form view (when there is no completed order) */
 [$items, $subtotal] = $order ? [[], 0] : get_cart_items($byId);
 $totalQty            = 0;
 foreach ($items as $row) {
@@ -149,9 +139,7 @@ foreach ($items as $row) {
 $deliveryFee = $subtotal > 0 ? 2.50 : 0.00;
 $grandTotal  = $subtotal + $deliveryFee;
 
-/* =========================================================
-   Cart count for navbar badge
-   ========================================================= */
+/* Cart count for navbar badge */
 $cartCount = 0;
 if (!empty($_SESSION['cart'])) {
     foreach ($_SESSION['cart'] as $qty) {
@@ -159,9 +147,7 @@ if (!empty($_SESSION['cart'])) {
     }
 }
 
-/* =========================================================
-   old() — page-specific helper for form field preservation
-   ========================================================= */
+/* old() — page-specific helper for form field preservation */
 function old($key, $default = '') {
     return htmlspecialchars($_POST[$key] ?? $default, ENT_QUOTES, 'UTF-8');
 }
@@ -171,463 +157,263 @@ function old($key, $default = '') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout | G-SHOPPING</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Checkout | Franklin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
-    <style>
-        /* =========================================================
-           Checkout-page-only layout (1rem = 10px)
-           ========================================================= */
-        .checkout-grid {
-            display: grid;
-            grid-template-columns: 1.6fr 1fr;
-            gap: 2rem;
-            align-items: start;
-        }
-        @media (max-width: 900px) {
-            .checkout-grid { grid-template-columns: 1fr; }
-        }
-
-        .checkout-section {
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 12px;
-            padding: 2.4rem 2.8rem;
-            margin-bottom: 2rem;
-        }
-        .checkout-section h3 {
-            margin: 0 0 1.8rem;
-            font-size: 1.7rem;
-        }
-        .checkout-section h3 span {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            background: #111;
-            color: #fff;
-            font-size: 1.3rem;
-            margin-right: 1rem;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.6rem;
-        }
-        .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-        @media (max-width: 560px) {
-            .form-row, .form-row.cols-3 { grid-template-columns: 1fr; }
-        }
-
-        .checkout-section label {
-            display: block;
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #444;
-            margin-bottom: 1.6rem;
-        }
-        .checkout-section label span.req { color: #c33; }
-
-        .checkout-section input[type="text"],
-        .checkout-section input[type="email"],
-        .checkout-section input[type="tel"] {
-            display: block;
-            width: 100%;
-            margin-top: 0.6rem;
-            padding: 1rem 1.3rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 1.5rem;
-            font-family: inherit;
-            color: #222;
-            box-sizing: border-box;
-        }
-
-        .payment-options {
-            display: flex;
-            gap: 1.6rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-        .payment-option {
-            flex: 1;
-            min-width: 160px;
-            border: 1.5px solid #ddd;
-            border-radius: 10px;
-            padding: 1.4rem 1.6rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            font-weight: 600;
-            font-size: 1.4rem;
-            transition: border-color .15s ease, background .15s ease;
-        }
-        .payment-option:has(input:checked) {
-            border-color: #111;
-            background: #f7f7f7;
-        }
-        .payment-option input { margin: 0; }
-        #cardFields.hidden { display: none; }
-
-        .checkout-summary {
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 12px;
-            padding: 2.4rem 2.8rem;
-            position: sticky;
-            top: 1.5rem;
-        }
-        .checkout-summary h3 {
-            margin: 0 0 1.6rem;
-            font-size: 1.7rem;
-        }
-        .checkout-summary-item {
-            display: flex;
-            justify-content: space-between;
-            gap: 1.2rem;
-            font-size: 1.4rem;
-            padding: 0.8rem 0;
-            border-bottom: 1px dashed #eee;
-        }
-        .checkout-summary-item .name { color: #333; }
-        .checkout-summary-item .qty { color: #888; }
-
-        .cart-summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.8rem 0;
-            font-size: 1.5rem;
-            color: #555;
-        }
-        .cart-summary-row.total {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #111;
-            border-top: 1px solid #eee;
-            margin-top: 0.8rem;
-            padding-top: 1.3rem;
-        }
-
-        /* ---- Confirmation ---- */
-        .order-confirm {
-            max-width: 640px;
-            margin: 0 auto;
-            text-align: center;
-            padding: 4.8rem 2.4rem;
-        }
-        .order-confirm i.fa-circle-check {
-            font-size: 5.6rem;
-            color: #1e9e5a;
-            margin-bottom: 1.6rem;
-        }
-        .order-confirm h1 {
-            margin: 0 0 0.6rem;
-            font-size: 2.8rem;
-        }
-        .order-confirm p {
-            font-size: 1.5rem;
-            color: #555;
-        }
-        .order-confirm .order-id {
-            display: inline-block;
-            background: #f4f4f4;
-            border-radius: 8px;
-            padding: 0.5rem 1.3rem;
-            font-family: monospace;
-            font-size: 1.5rem;
-            margin: 1rem 0 2.6rem;
-        }
-        .order-confirm .checkout-summary {
-            text-align: left;
-            margin-top: 2.4rem;
-            position: static;
-        }
-    </style>
+    <link rel="stylesheet" href="home.css">
+    <link rel="stylesheet" href="shop.css">
+    <link rel="stylesheet" href="account.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-inner">
-            <a href="index.php" class="logo">G-SHOPPING</a>
+<header class="fr-nav">
+    <div class="fr-wrap fr-nav-inner">
+        <a href="index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
 
-            <ul class="nav-links">
-                <li><a href="index.php">Home</a></li>
-                <li><a href="products.php">Products</a></li>
-                <li><a href="orders.php">Orders</a></li>
-                <li><a href="contact.php">Contact</a></li>
-            </ul>
+        <nav class="fr-links" aria-label="Main">
+            <a href="index.php">Home</a>
+            <a href="products.php">Products</a>
+            <a href="orders.php">Orders</a>
+            <a href="contact.php">Contact</a>
+        </nav>
 
-            <div class="nav-btn">
-                <a href="cart.php" class="cart" aria-label="Cart">
-                    <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count"><?= (int) $cartCount ?></span>
-                </a>
+        <div class="fr-actions">
+            <a href="cart.php" class="fr-cart" aria-label="Cart, <?= (int) $cartCount ?> items">
+                <i class="fa-solid fa-bag-shopping"></i>
+                <?php if ($cartCount > 0): ?><span class="fr-cart-count"><?= (int) $cartCount ?></span><?php endif; ?>
+            </a>
 
-                <?php if (is_logged_in()): ?>
-                    <?php $u = current_user(); ?>
-                    <?php if (($u['role'] ?? '') === 'seller'): ?>
-                        <button onclick="location.href='seller/index.php'">My shop</button>
-                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
-                        <button onclick="location.href='admin/index.php'">Admin</button>
-                    <?php endif; ?>
-                    <button onclick="location.href='logout.php'">Sign out</button>
-                <?php else: ?>
-                    <button onclick="location.href='login.php'">Login</button>
-                    <button onclick="location.href='register.php'" class="reg">Register</button>
+            <?php if (is_logged_in()): ?>
+                <?php $u = current_user(); ?>
+                <?php if (($u['role'] ?? '') === 'seller'): ?>
+                    <a href="seller/index.php" class="fr-btn fr-btn-quiet">My shop</a>
+                <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                    <a href="admin/index.php" class="fr-btn fr-btn-quiet">Admin</a>
                 <?php endif; ?>
-            </div>
-        </div>
-    </nav>
-
-    <main class="products-page">
-
-        <?php if ($order): ?>
-            <?php
-                $ocust  = $order['customer'] ?? [];
-                $oitems = $order['items']    ?? [];
-                $ostatus = $order['status']  ?? 'pending';
-            ?>
-            <!-- =========================================================
-                 Order confirmation
-                 ========================================================= -->
-            <div class="order-confirm">
-                <i class="fa-solid fa-circle-check"></i>
-                <h1>Thank you, <?= htmlspecialchars($ocust['fullName'] ?? 'there') ?>!</h1>
-                <p>Your order has been placed successfully.</p>
-                <span class="order-id">#<?= htmlspecialchars($order['id'] ?? '') ?></span>
-
-                <p style="margin-bottom: 2.4rem; font-size: 1.4rem;">
-                    Status:
-                    <span class="status-badge <?= e(order_status_class($ostatus)) ?>">
-                        <?= e(order_status_label($ostatus)) ?>
-                    </span>
-                </p>
-
-                <div class="checkout-summary">
-                    <h3>Order summary</h3>
-                    <?php foreach ($oitems as $row): ?>
-                        <?php
-                            $prod  = $row['product'] ?? [];
-                            $qty   = (int)   ($row['qty']  ?? 0);
-                            $line  = (float) ($row['line'] ?? 0);
-                        ?>
-                        <div class="checkout-summary-item">
-                            <span class="name">
-                                <?= htmlspecialchars($prod['name'] ?? 'Product') ?>
-                                <span class="qty">× <?= $qty ?></span>
-                            </span>
-                            <span><?= format_price($line) ?></span>
-                        </div>
-                    <?php endforeach; ?>
-
-                    <div class="cart-summary-row">
-                        <span>Subtotal</span>
-                        <span><?= format_price($order['subtotal'] ?? 0) ?></span>
-                    </div>
-                    <div class="cart-summary-row">
-                        <span>Delivery fee</span>
-                        <span><?= (($order['delivery'] ?? 0) > 0) ? format_price($order['delivery']) : '—' ?></span>
-                    </div>
-                    <div class="cart-summary-row total">
-                        <span>Total paid</span>
-                        <span><?= format_price($order['total'] ?? 0) ?></span>
-                    </div>
-
-                    <p style="margin-top:1.6rem; font-size:1.4rem; color:#777;">
-                        Shipping to <?= htmlspecialchars($ocust['address'] ?? '') ?>,
-                        <?= htmlspecialchars($ocust['city'] ?? '') ?>,
-                        <?= htmlspecialchars($ocust['country'] ?? '') ?> —
-                        paid via <?= ($order['payment'] ?? 'cod') === 'card' ? 'card' : 'cash on delivery' ?>.
-                        A confirmation was sent to <?= htmlspecialchars($ocust['email'] ?? '') ?>.
-                    </p>
-                </div>
-
-                <p style="margin-top:3.2rem;">
-                    <a href="orders.php" class="btn btn-primary">View my orders</a>
-                    <a href="products.php" class="btn btn-ghost-dark" style="margin-left:1rem;">Continue shopping</a>
-                </p>
-            </div>
-
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    if (window.showToast) {
-                        window.showToast('Order placed successfully!', 'success');
-                    }
-                });
-            </script>
-
-        <?php elseif (empty($items)): ?>
-            <!-- =========================================================
-                 Nothing to check out
-                 ========================================================= -->
-            <header class="products-header">
-                <h1>Checkout</h1>
-            </header>
-            <div class="empty-state">
-                <i class="fa-solid fa-cart-shopping"></i>
-                <h3>Your cart is empty</h3>
-                <p>Add some products before checking out.</p>
-                <p style="margin-top: 3.2rem;">
-                    <a href="products.php" class="btn btn-primary">Browse Products</a>
-                </p>
-            </div>
-
-        <?php else: ?>
-            <!-- =========================================================
-                 Checkout form
-                 ========================================================= -->
-            <header class="products-header">
-                <h1>Checkout</h1>
-                <p>Almost done — just a few details and your order is on its way.</p>
-            </header>
-
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-error" style="margin-bottom:2.4rem;">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <ul style="margin:.6rem 0 0 1.9rem;">
-                        <?php foreach ($errors as $err): ?>
-                            <li><?= htmlspecialchars($err) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
+                <a href="logout.php" class="fr-btn fr-btn-dark">Sign out</a>
+            <?php else: ?>
+                <a href="login.php" class="fr-btn fr-btn-quiet">Log in</a>
+                <a href="register.php" class="fr-btn fr-btn-dark">Register</a>
             <?php endif; ?>
+        </div>
+    </div>
+</header>
 
-            <form method="post" action="checkout.php" id="checkoutForm">
-                <div class="checkout-grid">
-                    <div>
-                        <!-- ---- Shipping info ---- -->
-                        <div class="checkout-section">
-                            <h3><span>1</span>Shipping details</h3>
+<main class="fr-wrap fr-page">
 
-                            <label>Full name <span class="req">*</span>
-                                <input type="text" name="fullName" value="<?= old('fullName') ?>" required>
-                            </label>
+<?php if ($order): ?>
+    <?php
+        $ocust   = $order['customer'] ?? [];
+        $oitems  = $order['items']    ?? [];
+        $ostatus = $order['status']   ?? 'pending';
+        $isCard  = ($order['payment'] ?? 'cod') === 'card';
+    ?>
+    <!-- Order confirmation -->
+    <div class="fr-confirm">
+        <i class="fa-solid fa-check"></i>
+        <h1>Thank you, <?= htmlspecialchars($ocust['fullName'] ?? 'there') ?>!</h1>
+        <p>Your order has been placed.</p>
+        <span class="fr-code">#<?= htmlspecialchars($order['id'] ?? '') ?></span>
+        <p>Status: <span class="status-badge <?= e(order_status_class($ostatus)) ?>"><?= e(order_status_label($ostatus)) ?></span></p>
 
-                            <div class="form-row">
-                                <label>Email <span class="req">*</span>
-                                    <input type="email" name="email" value="<?= old('email') ?>" required>
-                                </label>
-                                <label>Phone <span class="req">*</span>
-                                    <input type="tel" name="phone" value="<?= old('phone') ?>" required>
-                                </label>
-                            </div>
+        <div class="fr-panel">
+            <h3>Order summary</h3>
+            <?php foreach ($oitems as $row): ?>
+                <?php
+                    $prod = $row['product'] ?? [];
+                    $qty  = (int)   ($row['qty']  ?? 0);
+                    $line = (float) ($row['line'] ?? 0);
+                ?>
+                <div class="fr-mini">
+                    <span><?= htmlspecialchars($prod['name'] ?? 'Product') ?> <span class="q">× <?= $qty ?></span></span>
+                    <span><?= format_price($line) ?></span>
+                </div>
+            <?php endforeach; ?>
 
-                            <label>Street address <span class="req">*</span>
-                                <input type="text" name="address" value="<?= old('address') ?>" required>
-                            </label>
+            <div class="fr-sum"><span>Subtotal</span><span><?= format_price($order['subtotal'] ?? 0) ?></span></div>
+            <div class="fr-sum"><span>Delivery fee</span><span><?= (($order['delivery'] ?? 0) > 0) ? format_price($order['delivery']) : '—' ?></span></div>
+            <div class="fr-sum total"><span><?= $isCard ? 'Total paid' : 'Total due on delivery' ?></span><span><?= format_price($order['total'] ?? 0) ?></span></div>
 
-                            <div class="form-row cols-3">
-                                <label>City <span class="req">*</span>
-                                    <input type="text" name="city" value="<?= old('city') ?>" required>
-                                </label>
-                                <label>Postal / ZIP code <span class="req">*</span>
-                                    <input type="text" name="zip" value="<?= old('zip') ?>" required>
-                                </label>
-                                <label>Country <span class="req">*</span>
-                                    <input type="text" class="input" name="country" value="<?= old('country') ?>" required>
-                                </label>
-                            </div>
-                        </div>
+            <p style="margin-top:18px;font-size:.92rem">
+                Shipping to <?= htmlspecialchars($ocust['address'] ?? '') ?>,
+                <?= htmlspecialchars($ocust['city'] ?? '') ?>,
+                <?= htmlspecialchars($ocust['country'] ?? '') ?>,
+                <?= $isCard ? 'paid by card' : 'pay with cash on delivery' ?>.
+                A confirmation was sent to <?= htmlspecialchars($ocust['email'] ?? '') ?>.
+            </p>
+        </div>
 
-                        <!-- ---- Payment ---- -->
-                        <div class="checkout-section">
-                            <h3><span>2</span>Payment method</h3>
+        <div class="fr-btns">
+            <a href="orders.php" class="fr-btn fr-btn-primary fr-btn-lg">View my orders</a>
+            <a href="products.php" class="fr-btn fr-btn-outline fr-btn-lg">Continue shopping</a>
+        </div>
+    </div>
 
-                            <div class="payment-options">
-                                <label class="payment-option">
-                                    <input type="radio" class="input" name="payment" value="card" id="payCard"
-                                        <?= (($_POST['payment'] ?? 'card') === 'card') ? 'checked' : '' ?>>
-                                    <i class="fa-solid fa-credit-card"></i> Credit / debit card
-                                </label>
-                                <label class="payment-option">
-                                    <input type="radio" class="input" name="payment" value="cod" id="payCod"
-                                        <?= (($_POST['payment'] ?? '') === 'cod') ? 'checked' : '' ?>>
-                                    <i class="fa-solid fa-money-bill-wave"></i> Cash on delivery
-                                </label>
-                            </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.showToast) {
+                window.showToast('Order placed successfully!', 'success');
+            }
+        });
+    </script>
 
-                            <div id="cardFields">
-                                <label>Card number <span class="req">*</span>
-                                    <input type="text" class="input" name="cardNumber" placeholder="1234 5678 9012 3456"
-                                        value="<?= old('cardNumber') ?>" inputmode="numeric">
-                                </label>
-                                <div class="form-row">
-                                    <label>Expiry (MM/YY) <span class="req">*</span>
-                                        <input type="text" class="input" name="cardExpiry" placeholder="MM/YY"
-                                            value="<?= old('cardExpiry') ?>">
-                                    </label>
-                                    <label>CVV <span class="req">*</span>
-                                        <input type="text" class="input" name="cardCvv" placeholder="123"
-                                            value="<?= old('cardCvv') ?>" inputmode="numeric">
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
+<?php elseif (empty($items)): ?>
+    <header class="fr-page-head"><h1>Checkout</h1></header>
+    <div class="fr-empty">
+        <i class="fa-solid fa-bag-shopping"></i>
+        <h3>Your cart is empty</h3>
+        <p>Add some products before checking out.</p>
+        <p style="margin-top:24px"><a href="products.php" class="fr-btn fr-btn-primary">Browse products</a></p>
+    </div>
 
-                        <a href="cart.php" class="btn btn-ghost-dark">
-                            <i class="fa-solid fa-arrow-left"></i> Back to cart
-                        </a>
+<?php else: ?>
+    <header class="fr-page-head">
+        <h1>Checkout</h1>
+        <p>Almost done. Add your details and your order is on its way.</p>
+    </header>
+
+    <?php if (!empty($errors)): ?>
+        <div class="fr-alert fr-alert-err" role="alert">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <ul>
+                <?php foreach ($errors as $err): ?><li><?= htmlspecialchars($err) ?></li><?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
+
+    <form method="post" action="checkout.php" id="checkoutForm">
+        <div class="fr-layout">
+            <div>
+                <div class="fr-panel">
+                    <h3><span class="fr-step">1</span>Shipping details</h3>
+
+                    <label class="fr-field">Full name <span class="req">*</span>
+                        <input type="text" name="fullName" value="<?= old('fullName') ?>" required>
+                    </label>
+
+                    <div class="fr-row">
+                        <label class="fr-field">Email <span class="req">*</span>
+                            <input type="email" name="email" value="<?= old('email') ?>" required>
+                        </label>
+                        <label class="fr-field">Phone <span class="req">*</span>
+                            <input type="tel" name="phone" value="<?= old('phone') ?>" required>
+                        </label>
                     </div>
 
-                    <!-- ---- Order summary sidebar ---- -->
-                    <aside class="checkout-summary">
-                        <h3>Order summary (<?= $totalQty ?> item<?= $totalQty === 1 ? '' : 's' ?>)</h3>
+                    <label class="fr-field">Street address <span class="req">*</span>
+                        <input type="text" name="address" value="<?= old('address') ?>" required>
+                    </label>
 
-                        <?php foreach ($items as $row): ?>
-                            <?php
-                                $prod  = $row['product'] ?? [];
-                                $qty   = (int)   ($row['qty']  ?? 0);
-                                $line  = (float) ($row['line'] ?? 0);
-                            ?>
-                            <div class="checkout-summary-item">
-                                <span class="name">
-                                    <?= htmlspecialchars($prod['name'] ?? 'Product') ?>
-                                    <span class="qty">× <?= $qty ?></span>
-                                </span>
-                                <span><?= format_price($line) ?></span>
-                            </div>
-                        <?php endforeach; ?>
-
-                        <div class="cart-summary-row">
-                            <span>Subtotal</span>
-                            <span><?= format_price($subtotal) ?></span>
-                        </div>
-                        <div class="cart-summary-row">
-                            <span>Delivery fee</span>
-                            <span><?= $deliveryFee > 0 ? format_price($deliveryFee) : '—' ?></span>
-                        </div>
-                        <div class="cart-summary-row total">
-                            <span>Total</span>
-                            <span><?= format_price($grandTotal) ?></span>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:2.2rem;">
-                            <i class="fa-solid fa-lock"></i> Place order
-                        </button>
-                    </aside>
+                    <div class="fr-row cols-3">
+                        <label class="fr-field">City <span class="req">*</span>
+                            <input type="text" name="city" value="<?= old('city') ?>" required>
+                        </label>
+                        <label class="fr-field">Postal / ZIP code <span class="req">*</span>
+                            <input type="text" name="zip" value="<?= old('zip') ?>" required>
+                        </label>
+                        <label class="fr-field">Country <span class="req">*</span>
+                            <input type="text" name="country" value="<?= old('country') ?>" required>
+                        </label>
+                    </div>
                 </div>
-            </form>
 
-            <script>
-                // Show/hide card fields depending on the chosen payment method.
-                (function () {
-                    var cardFields = document.getElementById('cardFields');
-                    var radios = document.querySelectorAll('input[name="payment"]');
-                    function sync() {
-                        var isCard = document.getElementById('payCard').checked;
-                        cardFields.classList.toggle('hidden', !isCard);
-                    }
-                    radios.forEach(function (r) { r.addEventListener('change', sync); });
-                    sync();
-                })();
-            </script>
-        <?php endif; ?>
+                <div class="fr-panel" style="margin-top:20px">
+                    <h3><span class="fr-step">2</span>Payment method</h3>
 
-    </main>
+                    <div class="fr-pay">
+                        <label>
+                            <input type="radio" name="payment" value="card" id="payCard"
+                                <?= (($_POST['payment'] ?? 'card') === 'card') ? 'checked' : '' ?>>
+                            <i class="fa-solid fa-credit-card"></i> Credit / debit card
+                        </label>
+                        <label>
+                            <input type="radio" name="payment" value="cod" id="payCod"
+                                <?= (($_POST['payment'] ?? '') === 'cod') ? 'checked' : '' ?>>
+                            <i class="fa-solid fa-money-bill-wave"></i> Cash on delivery
+                        </label>
+                    </div>
 
-    <script src="/js/script.js"></script>
+                    <div id="cardFields">
+                        <label class="fr-field">Card number <span class="req">*</span>
+                            <input type="text" name="cardNumber" placeholder="1234 5678 9012 3456"
+                                   value="<?= old('cardNumber') ?>" inputmode="numeric" autocomplete="cc-number">
+                        </label>
+                        <div class="fr-row">
+                            <label class="fr-field">Expiry (MM/YY) <span class="req">*</span>
+                                <input type="text" name="cardExpiry" placeholder="MM/YY"
+                                       value="<?= old('cardExpiry') ?>" autocomplete="cc-exp">
+                            </label>
+                            <label class="fr-field">CVV <span class="req">*</span>
+                                <input type="text" name="cardCvv" placeholder="123"
+                                       value="<?= old('cardCvv') ?>" inputmode="numeric" autocomplete="cc-csc">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="margin-top:20px">
+                    <a href="cart.php" class="fr-btn fr-btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to cart</a>
+                </p>
+            </div>
+
+            <aside class="fr-panel fr-sticky">
+                <h3>Order summary (<?= $totalQty ?> item<?= $totalQty === 1 ? '' : 's' ?>)</h3>
+
+                <?php foreach ($items as $row): ?>
+                    <?php
+                        $prod = $row['product'] ?? [];
+                        $qty  = (int)   ($row['qty']  ?? 0);
+                        $line = (float) ($row['line'] ?? 0);
+                    ?>
+                    <div class="fr-mini">
+                        <span><?= htmlspecialchars($prod['name'] ?? 'Product') ?> <span class="q">× <?= $qty ?></span></span>
+                        <span><?= format_price($line) ?></span>
+                    </div>
+                <?php endforeach; ?>
+
+                <div class="fr-sum" style="margin-top:8px"><span>Subtotal</span><span><?= format_price($subtotal) ?></span></div>
+                <div class="fr-sum"><span>Delivery fee</span><span><?= $deliveryFee > 0 ? format_price($deliveryFee) : '—' ?></span></div>
+                <div class="fr-sum total"><span>Total</span><span><?= format_price($grandTotal) ?></span></div>
+
+                <button type="submit" class="fr-btn fr-btn-primary fr-btn-lg fr-btn-block" style="margin-top:20px">
+                    <i class="fa-solid fa-lock"></i> Place order
+                </button>
+                <p class="fr-secure"><i class="fa-solid fa-shield-halved"></i> Your details are only used for this order</p>
+            </aside>
+        </div>
+    </form>
+
+    <script>
+        // Show/hide card fields depending on the chosen payment method.
+        (function () {
+            var cardFields = document.getElementById('cardFields');
+            var radios = document.querySelectorAll('input[name="payment"]');
+            function sync() {
+                var isCard = document.getElementById('payCard').checked;
+                cardFields.classList.toggle('hidden', !isCard);
+            }
+            radios.forEach(function (r) { r.addEventListener('change', sync); });
+            sync();
+        })();
+    </script>
+<?php endif; ?>
+
+</main>
+
+<footer class="fr-footer">
+    <div class="fr-wrap fr-footer-inner">
+        <a href="index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
+        <nav aria-label="Footer">
+            <a href="products.php">Products</a>
+            <a href="orders.php">Orders</a>
+            <a href="about.php">About</a>
+            <a href="contact.php">Contact</a>
+        </nav>
+        <p>&copy; <?= date('Y') ?> Franklin</p>
+    </div>
+</footer>
+
+<script src="/js/script.js"></script>
 </body>
 </html>

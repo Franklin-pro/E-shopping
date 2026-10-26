@@ -4,24 +4,18 @@ session_start();
 require_once __DIR__ . '/auth.php';
 require __DIR__ . '/js/products-data.php';
 
-/* =========================================================
-   Merge demo catalog + seller uploads, then normalize.
-   ========================================================= */
+/* Merge demo catalog + seller uploads, then normalize. */
 $products = array_values(get_all_products($products));
 normalize_products($products);
 
-/* =========================================================
-   Load seed reviews (optional)
-   ========================================================= */
+/* Load seed reviews (optional) */
 $seedReviews = [];
 $reviewsFile = __DIR__ . '/reviews-data.php';
 if (file_exists($reviewsFile)) {
     require $reviewsFile;
 }
 
-/* =========================================================
-   Find the product by ?id=
-   ========================================================= */
+/* Find the product by ?id= */
 $id = (int) ($_GET['id'] ?? 0);
 
 $product = null;
@@ -33,9 +27,7 @@ foreach ($products as $p) {
 }
 unset($p);
 
-/* =========================================================
-   Handle the review form (POST)
-   ========================================================= */
+/* Handle the review form (POST) */
 $errors  = [];
 $success = false;
 
@@ -81,16 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $product) {
     }
 }
 
-/* =========================================================
-   Merge seed reviews + session reviews
-   ========================================================= */
+/* Merge seed reviews + session reviews */
 $seed        = $seedReviews[$id] ?? [];
 $fromSession = $_SESSION['reviews'][$id] ?? [];
 $reviews     = array_merge($fromSession, $seed);
 
-/* =========================================================
-   Rating stats
-   ========================================================= */
+/* Rating stats */
 $reviewCount = count($reviews);
 $avgRating   = $reviewCount > 0
     ? array_sum(array_column($reviews, 'rating')) / $reviewCount
@@ -98,12 +86,13 @@ $avgRating   = $reviewCount > 0
 
 $starCounts = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
 foreach ($reviews as $r) {
-    $starCounts[(int) $r['rating']]++;
+    $s = (int) ($r['rating'] ?? 0);
+    if (isset($starCounts[$s])) {
+        $starCounts[$s]++;
+    }
 }
 
-/* =========================================================
-   Related products (same category, excluding current)
-   ========================================================= */
+/* Related products (same category, excluding current) */
 $related = [];
 if ($product) {
     foreach ($products as $p) {
@@ -116,9 +105,7 @@ if ($product) {
 }
 unset($p);
 
-/* =========================================================
-   Cart count for navbar
-   ========================================================= */
+/* Cart count */
 $cartCount = 0;
 if (!empty($_SESSION['cart'])) {
     foreach ($_SESSION['cart'] as $qty) {
@@ -126,10 +113,7 @@ if (!empty($_SESSION['cart'])) {
     }
 }
 
-/* =========================================================
-   time_ago() — page-specific helper. format_price() and
-   render_stars() now live in auth.php.
-   ========================================================= */
+/* time_ago() — page-specific helper */
 function time_ago($datetime) {
     $ts = strtotime($datetime);
     if (!$ts) return $datetime;
@@ -147,378 +131,311 @@ function time_ago($datetime) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $product ? htmlspecialchars($product['name']) : 'Product Not Found' ?> | G-SHOPPING</title>
-    <link rel="stylesheet" href="style.css">
+    <title><?= $product ? htmlspecialchars($product['name']) : 'Product not found' ?> | Franklin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="stylesheet" href="home.css">
+    <link rel="stylesheet" href="shop.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-inner">
-            <a href="index.php" class="logo">G-SHOPPING</a>
+<header class="fr-nav">
+    <div class="fr-wrap fr-nav-inner">
+        <a href="index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
 
-            <ul class="nav-links">
-                <li><a href="index.php">Home</a></li>
-                <li><a href="products.php" class="active">Products</a></li>
-                <li><a href="orders.php">Orders</a></li>
-                <li><a href="contact.php">Contact</a></li>
-            </ul>
+        <nav class="fr-links" aria-label="Main">
+            <a href="index.php">Home</a>
+            <a href="products.php" class="is-active">Products</a>
+            <a href="orders.php">Orders</a>
+            <a href="contact.php">Contact</a>
+        </nav>
 
-            <div class="nav-btn">
-                <a href="cart.php" class="cart" aria-label="Cart">
-                    <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count"><?= (int) $cartCount ?></span>
-                </a>
+        <div class="fr-actions">
+            <a href="cart.php" class="fr-cart" aria-label="Cart, <?= (int) $cartCount ?> items">
+                <i class="fa-solid fa-bag-shopping"></i>
+                <?php if ($cartCount > 0): ?><span class="fr-cart-count" id="cartCount"><?= (int) $cartCount ?></span><?php endif; ?>
+            </a>
 
-                <?php if (is_logged_in()): ?>
-                    <?php $u = current_user(); ?>
-                    <?php if (($u['role'] ?? '') === 'seller'): ?>
-                        <button onclick="location.href='seller/index.php'">My shop</button>
-                    <?php elseif (($u['role'] ?? '') === 'admin'): ?>
-                        <button onclick="location.href='admin/index.php'">Admin</button>
-                    <?php endif; ?>
-                    <button onclick="location.href='logout.php'">Sign out</button>
-                <?php else: ?>
-                    <button onclick="location.href='login.php'">Login</button>
-                    <button onclick="location.href='register.php'" class="reg">Register</button>
+            <?php if (is_logged_in()): ?>
+                <?php $u = current_user(); ?>
+                <?php if (($u['role'] ?? '') === 'seller'): ?>
+                    <a href="seller/index.php" class="fr-btn fr-btn-quiet">My shop</a>
+                <?php elseif (($u['role'] ?? '') === 'admin'): ?>
+                    <a href="admin/index.php" class="fr-btn fr-btn-quiet">Admin</a>
                 <?php endif; ?>
-            </div>
+                <a href="logout.php" class="fr-btn fr-btn-dark">Sign out</a>
+            <?php else: ?>
+                <a href="login.php" class="fr-btn fr-btn-quiet">Log in</a>
+                <a href="register.php" class="fr-btn fr-btn-dark">Register</a>
+            <?php endif; ?>
         </div>
+    </div>
+</header>
+
+<main class="fr-wrap fr-page">
+<?php if (!$product): ?>
+    <div class="fr-empty">
+        <i class="fa-solid fa-box-open"></i>
+        <h3>Product not found</h3>
+        <p>The product you're looking for doesn't exist.</p>
+        <p style="margin-top:24px"><a href="products.php" class="fr-btn fr-btn-primary">Back to products</a></p>
+    </div>
+<?php else: ?>
+    <?php
+        $pid       = (int) ($product['id'] ?? 0);
+        $pname     = $product['name']        ?? 'Untitled';
+        $pcat      = $product['category']    ?? '';
+        $pdesc     = $product['description'] ?? '';
+        $pprice    = (float) ($product['price'] ?? 0);
+        $pold      = $product['oldPrice']    ?? null;
+        $prating   = (float) ($product['rating'] ?? 0);
+        $pinStock  = !empty($product['inStock']);
+        $pimage    = $product['image_url']   ?? '';
+        $psource   = $product['source']      ?? '';
+        $pseller   = $product['seller_name'] ?? 'Seller';
+        $plocation = $product['location']    ?? '';
+
+        $displayRating = $avgRating > 0 ? $avgRating : $prating;
+    ?>
+
+    <nav class="fr-crumbs" aria-label="Breadcrumb">
+        <a href="index.php">Home</a><span>/</span>
+        <a href="products.php">Products</a><span>/</span>
+        <a href="products.php?category=<?= urlencode($pcat) ?>"><?= htmlspecialchars($pcat) ?></a><span>/</span>
+        <span class="current"><?= htmlspecialchars($pname) ?></span>
     </nav>
 
-    <main class="products-page">
-        <?php if (!$product): ?>
-            <div class="empty-state">
-                <i class="fa-solid fa-box-open"></i>
-                <h3>Product not found</h3>
-                <p>The product you're looking for doesn't exist.</p>
-                <p style="margin-top: 2rem;">
-                    <a href="products.php" class="btn btn-primary">Back to Products</a>
-                </p>
+    <!-- Product detail -->
+    <section class="fr-detail">
+        <div class="fr-detail-img">
+            <img src="<?= htmlspecialchars($pimage) ?>" alt="<?= htmlspecialchars($pname) ?>">
+            <?php if (!empty($pold)): ?><span class="fr-badge fr-badge-sale">Sale</span><?php endif; ?>
+            <?php if (!$pinStock): ?><span class="fr-badge fr-badge-out">Out of stock</span><?php endif; ?>
+            <?php if ($psource === 'seller'): ?><span class="fr-seller-tag">By <?= htmlspecialchars($pseller) ?></span><?php endif; ?>
+        </div>
+
+        <div class="fr-detail-info">
+            <p class="fr-card-meta"><?= htmlspecialchars($pcat) ?></p>
+            <h1><?= htmlspecialchars($pname) ?></h1>
+
+            <div class="fr-rating">
+                <span class="stars"><?= render_stars($displayRating) ?></span>
+                <span><?= number_format($displayRating, 1) ?></span>
+                <a href="#reviews">(<?= $reviewCount ?> review<?= $reviewCount === 1 ? '' : 's' ?>)</a>
             </div>
-        <?php else: ?>
-            <?php
-                /* Pull fields into locals with safe defaults */
-                $pid       = (int) ($product['id'] ?? 0);
-                $pname     = $product['name']        ?? 'Untitled';
-                $pcat      = $product['category']    ?? '';
-                $pdesc     = $product['description'] ?? '';
-                $pprice    = (float) ($product['price'] ?? 0);
-                $pold      = $product['oldPrice']    ?? null;
-                $prating   = (float) ($product['rating'] ?? 0);
-                $pinStock  = !empty($product['inStock']);
-                $pimage    = $product['image_url']   ?? '';
-                $psource   = $product['source']      ?? '';
-                $pseller   = $product['seller_name'] ?? 'Seller';
-                $plocation = $product['location']    ?? '';
 
-                $displayRating = $avgRating > 0 ? $avgRating : $prating;
-            ?>
+            <div class="fr-detail-price">
+                <strong><?= format_price($pprice) ?></strong>
+                <?php if (!empty($pold)): ?>
+                    <s><?= format_price($pold) ?></s>
+                    <span class="fr-save">Save <?= format_price($pold - $pprice) ?></span>
+                <?php endif; ?>
+            </div>
 
-            <!-- ---------- Breadcrumb ---------- -->
-            <nav class="breadcrumb" aria-label="Breadcrumb">
-                <a href="index.php">Home</a>
-                <span>/</span>
-                <a href="products.php">Products</a>
-                <span>/</span>
-                <a href="products.php?category=<?= urlencode($pcat) ?>">
-                    <?= htmlspecialchars($pcat) ?>
-                </a>
-                <span>/</span>
-                <span class="current"><?= htmlspecialchars($pname) ?></span>
-            </nav>
+            <p class="fr-detail-desc"><?= htmlspecialchars($pdesc) ?></p>
 
-            <!-- ---------- Product detail ---------- -->
-            <section class="product-detail">
-                <div class="product-detail-image">
-                    <img
-                        src="<?= htmlspecialchars($pimage) ?>"
-                        alt="<?= htmlspecialchars($pname) ?>"
-                        loading="lazy"
-                    >
-                    <?php if (!empty($pold)): ?>
-                        <span class="badge sale">Sale</span>
+            <ul class="fr-meta">
+                <li><i class="fa-solid fa-tag"></i><span>Category: <strong><?= htmlspecialchars($pcat) ?></strong></span></li>
+                <?php if ($psource === 'seller'): ?>
+                    <li><i class="fa-solid fa-store"></i><span>Sold by <strong><?= htmlspecialchars($pseller) ?></strong></span></li>
+                    <?php if ($plocation !== ''): ?>
+                        <li><i class="fa-solid fa-location-dot"></i><span>Ships from <strong><?= htmlspecialchars($plocation) ?></strong></span></li>
                     <?php endif; ?>
-                    <?php if (!$pinStock): ?>
-                        <span class="badge out">Out of stock</span>
-                    <?php endif; ?>
-                    <?php if ($psource === 'seller'): ?>
-                        <span class="badge" style="background:#111; top:auto; bottom:10px; left:10px;">
-                            By <?= htmlspecialchars($pseller) ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
+                <?php endif; ?>
+                <li>
+                    <i class="fa-solid fa-circle-check <?= $pinStock ? 'ok' : 'no' ?>"></i>
+                    <span><?= $pinStock ? 'In stock — ships within 24h' : 'Currently out of stock' ?></span>
+                </li>
+                <li><i class="fa-solid fa-truck-fast"></i><span>Free delivery on orders over $50</span></li>
+                <li><i class="fa-solid fa-rotate-left"></i><span>30-day easy returns</span></li>
+            </ul>
 
-                <div class="product-detail-info">
-                    <p class="product-category"><?= htmlspecialchars($pcat) ?></p>
-                    <h1 class="product-detail-name"><?= htmlspecialchars($pname) ?></h1>
+            <div class="fr-detail-actions">
+                <?php if ($pinStock): ?>
+                    <form action="cart.php" method="post">
+                        <input type="hidden" name="id" value="<?= $pid ?>">
+                        <button class="fr-btn fr-btn-primary fr-btn-lg" type="submit"><i class="fa-solid fa-cart-plus"></i> Add to cart</button>
+                    </form>
+                <?php else: ?>
+                    <button class="fr-btn fr-btn-primary fr-btn-lg" disabled>Out of stock</button>
+                <?php endif; ?>
+                <a href="products.php" class="fr-btn fr-btn-outline fr-btn-lg"><i class="fa-solid fa-arrow-left"></i> Keep shopping</a>
+            </div>
+        </div>
+    </section>
 
-                    <div class="product-rating">
-                        <span class="stars"><?= render_stars($displayRating) ?></span>
-                        <span class="rating-value"><?= number_format($displayRating, 1) ?></span>
-                        <a href="#reviews" class="rating-link">
-                            (<?= $reviewCount ?> review<?= $reviewCount === 1 ? '' : 's' ?>)
-                        </a>
+    <!-- Reviews -->
+    <section class="fr-reviews" id="reviews">
+        <header>
+            <h2>Customer reviews</h2>
+            <p>What people are saying about this product.</p>
+        </header>
+
+        <div class="fr-reviews-layout">
+            <aside>
+                <div class="fr-panel">
+                    <div class="fr-score">
+                        <b><?= number_format($avgRating, 1) ?></b>
+                        <div>
+                            <span class="stars"><?= render_stars($avgRating) ?></span>
+                            <small><?= $reviewCount ?> review<?= $reviewCount === 1 ? '' : 's' ?></small>
+                        </div>
                     </div>
-
-                    <div class="product-detail-price">
-                        <span class="price-current"><?= format_price($pprice) ?></span>
-                        <?php if (!empty($pold)): ?>
-                            <span class="price-old"><?= format_price($pold) ?></span>
-                            <span class="price-save">
-                                Save <?= format_price($pold - $pprice) ?>
-                            </span>
-                        <?php endif; ?>
-                    </div>
-
-                    <p class="product-detail-desc"><?= htmlspecialchars($pdesc) ?></p>
-
-                    <ul class="product-meta">
-                        <li>
-                            <i class="fa-solid fa-tag"></i>
-                            Category: <strong><?= htmlspecialchars($pcat) ?></strong>
-                        </li>
-
-                        <?php if ($psource === 'seller'): ?>
+                    <ul class="fr-bars">
+                        <?php foreach ([5, 4, 3, 2, 1] as $star): ?>
+                            <?php
+                                $count = $starCounts[$star];
+                                $pct   = $reviewCount > 0 ? ($count / $reviewCount) * 100 : 0;
+                            ?>
                             <li>
-                                <i class="fa-solid fa-store"></i>
-                                Sold by <strong><?= htmlspecialchars($pseller) ?></strong>
+                                <span><?= $star ?> <i class="fa-solid fa-star"></i></span>
+                                <span class="fr-bar"><span style="width:<?= number_format($pct, 1, '.', '') ?>%"></span></span>
+                                <span class="n"><?= $count ?></span>
                             </li>
-                            <?php if ($plocation !== ''): ?>
-                                <li>
-                                    <i class="fa-solid fa-location-dot"></i>
-                                    Ships from <strong><?= htmlspecialchars($plocation) ?></strong>
-                                </li>
-                            <?php endif; ?>
-                        <?php endif; ?>
-
-                        <li>
-                            <i class="fa-solid fa-circle-check" style="color: <?= $pinStock ? '#1e9e5a' : '#c33' ?>"></i>
-                            <?= $pinStock ? 'In stock — ships within 24h' : 'Currently out of stock' ?>
-                        </li>
-                        <li><i class="fa-solid fa-truck-fast"></i> Free delivery on orders over $50</li>
-                        <li><i class="fa-solid fa-rotate-left"></i> 30-day easy returns</li>
+                        <?php endforeach; ?>
                     </ul>
-
-                    <div class="product-detail-actions">
-                        <?php if ($pinStock): ?>
-                            <form action="cart.php" method="post">
-                                <input type="hidden" name="id" value="<?= $pid ?>">
-                                <button class="btn btn-primary btn-lg" type="submit">
-                                    <i class="fa-solid fa-cart-plus"></i> Add to Cart
-                                </button>
-                            </form>
-                        <?php else: ?>
-                            <button class="btn btn-primary btn-lg" disabled>
-                                <i class="fa-solid fa-cart-plus"></i> Out of stock
-                            </button>
-                        <?php endif; ?>
-
-                        <a href="products.php" class="btn btn-ghost-dark">
-                            <i class="fa-solid fa-arrow-left"></i> Keep shopping
-                        </a>
-                    </div>
                 </div>
-            </section>
 
-            <!-- ---------- Reviews ---------- -->
-            <section class="reviews-section" id="reviews">
-                <header class="reviews-header">
-                    <h2>Customer Reviews</h2>
-                    <p>What people are saying about this product.</p>
-                </header>
+                <div class="fr-panel">
+                    <h3>Write a review</h3>
 
-                <div class="reviews-layout">
-                    <aside class="reviews-sidebar">
-                        <div class="rating-summary">
-                            <div class="rating-summary-score">
-                                <span class="score"><?= number_format($avgRating, 1) ?></span>
-                                <span class="stars"><?= render_stars($avgRating) ?></span>
-                                <span class="count">
-                                    <?= $reviewCount ?> review<?= $reviewCount === 1 ? '' : 's' ?>
-                                </span>
-                            </div>
+                    <?php if ($success): ?>
+                        <div class="fr-alert fr-alert-ok" role="status">
+                            <i class="fa-solid fa-circle-check"></i> Thanks — your review was posted.
+                        </div>
+                    <?php endif; ?>
 
-                            <ul class="rating-breakdown">
-                                <?php foreach ([5, 4, 3, 2, 1] as $star): ?>
-                                    <?php
-                                        $count = $starCounts[$star];
-                                        $pct   = $reviewCount > 0 ? ($count / $reviewCount) * 100 : 0;
-                                    ?>
-                                    <li>
-                                        <span class="label"><?= $star ?> <i class="fa-solid fa-star"></i></span>
-                                        <span class="bar"><span style="width: <?= number_format($pct, 1) ?>%"></span></span>
-                                        <span class="num"><?= $count ?></span>
-                                    </li>
+                    <?php if (!empty($errors)): ?>
+                        <div class="fr-alert fr-alert-err" role="alert">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <ul>
+                                <?php foreach ($errors as $err): ?>
+                                    <li><?= htmlspecialchars($err) ?></li>
                                 <?php endforeach; ?>
                             </ul>
                         </div>
+                    <?php endif; ?>
 
-                        <div class="review-form-card">
-                            <h3>Write a review</h3>
-
-                            <?php if ($success): ?>
-                                <div class="alert alert-success">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                    Thanks — your review was posted!
-                                </div>
-                            <?php endif; ?>
-
-                            <?php if (!empty($errors)): ?>
-                                <div class="alert alert-error">
-                                    <i class="fa-solid fa-circle-exclamation"></i>
-                                    <ul>
-                                        <?php foreach ($errors as $err): ?>
-                                            <li><?= htmlspecialchars($err) ?></li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
-                            <?php endif; ?>
-
-                            <form method="post" action="product.php?id=<?= $pid ?>#reviews">
-                                <label>
-                                    Your name
-                                    <input
-                                        type="text"
-                                        name="author"
-                                        required
-                                        maxlength="60"
-                                        value="<?= htmlspecialchars($_POST['author'] ?? '') ?>"
-                                        placeholder="Jane D."
-                                    >
-                                </label>
-
-                                <label>
-                                    Rating
-                                    <div class="star-picker">
-                                        <?php for ($i = 5; $i >= 1; $i--): ?>
-                                            <input
-                                                type="radio"
-                                                id="star<?= $i ?>"
-                                                name="rating"
-                                                value="<?= $i ?>"
-                                                <?= (($_POST['rating'] ?? 0) == $i) ? 'checked' : '' ?>
-                                                required
-                                            >
-                                            <label for="star<?= $i ?>" title="<?= $i ?> star<?= $i === 1 ? '' : 's' ?>">
-                                                <i class="fa-solid fa-star"></i>
-                                            </label>
-                                        <?php endfor; ?>
-                                    </div>
-                                </label>
-
-                                <label>
-                                    Comment
-                                    <textarea
-                                        name="comment"
-                                        rows="4"
-                                        required
-                                        maxlength="1000"
-                                        placeholder="Share your experience with this product..."
-                                    ><?= htmlspecialchars($_POST['comment'] ?? '') ?></textarea>
-                                </label>
-
-                                <button type="submit" class="btn btn-primary" style="width:100%;">
-                                    <i class="fa-solid fa-paper-plane"></i> Post Review
-                                </button>
-                            </form>
+                    <form method="post" action="product.php?id=<?= $pid ?>#reviews">
+                        <div class="fr-field">
+                            <label for="author">Your name</label>
+                            <input type="text" id="author" name="author" required maxlength="60"
+                                   value="<?= htmlspecialchars($_POST['author'] ?? '') ?>" placeholder="Jane D.">
                         </div>
-                    </aside>
 
-                    <div class="reviews-list">
-                        <?php if (empty($reviews)): ?>
-                            <div class="empty-state">
-                                <i class="fa-regular fa-comment-dots"></i>
-                                <h3>No reviews yet</h3>
-                                <p>Be the first to review this product.</p>
+                        <fieldset class="fr-field">
+                            <legend>Rating</legend>
+                            <div class="fr-star-input">
+                                <?php for ($i = 5; $i >= 1; $i--): ?>
+                                    <input type="radio" id="star<?= $i ?>" name="rating" value="<?= $i ?>"
+                                           <?= (($_POST['rating'] ?? 0) == $i) ? 'checked' : '' ?> required>
+                                    <label for="star<?= $i ?>" title="<?= $i ?> star<?= $i === 1 ? '' : 's' ?>">
+                                        <i class="fa-solid fa-star"></i>
+                                    </label>
+                                <?php endfor; ?>
                             </div>
-                        <?php else: ?>
-                            <?php foreach ($reviews as $r): ?>
-                                <?php
-                                    $rauthor  = $r['author']  ?? 'Anonymous';
-                                    $rrating  = (int) ($r['rating'] ?? 0);
-                                    $rcomment = $r['comment'] ?? '';
-                                    $rdate    = $r['date']    ?? '';
-                                ?>
-                                <article class="review-item">
-                                    <header class="review-head">
-                                        <div class="review-avatar">
-                                            <?= htmlspecialchars(mb_strtoupper(mb_substr($rauthor, 0, 1))) ?>
-                                        </div>
-                                        <div class="review-meta">
-                                            <strong><?= htmlspecialchars($rauthor) ?></strong>
-                                            <div class="review-stars">
-                                                <?= render_stars($rrating) ?>
-                                                <span class="review-date">· <?= time_ago($rdate) ?></span>
-                                            </div>
-                                        </div>
-                                    </header>
-                                    <p class="review-body"><?= nl2br(htmlspecialchars($rcomment)) ?></p>
-                                </article>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
+                        </fieldset>
+
+                        <div class="fr-field">
+                            <label for="comment">Comment</label>
+                            <textarea id="comment" name="comment" rows="4" required maxlength="1000"
+                                      placeholder="Share your experience with this product"><?= htmlspecialchars($_POST['comment'] ?? '') ?></textarea>
+                        </div>
+
+                        <button type="submit" class="fr-btn fr-btn-primary fr-btn-block">
+                            <i class="fa-solid fa-paper-plane"></i> Post review
+                        </button>
+                    </form>
                 </div>
-            </section>
+            </aside>
 
-            <!-- ---------- Related products ---------- -->
-            <?php if (!empty($related)): ?>
-                <section class="related-section">
-                    <header class="featured-header">
-                        <h2>You might also like</h2>
-                        <p>More <?= htmlspecialchars($pcat) ?> picks.</p>
-                    </header>
-
-                    <div class="product-grid">
-                        <?php foreach ($related as $p): ?>
-                            <?php
-                                $rid      = (int) ($p['id'] ?? 0);
-                                $rname    = $p['name']        ?? 'Untitled';
-                                $rcat     = $p['category']    ?? '';
-                                $rprice   = (float) ($p['price'] ?? 0);
-                                $rold     = $p['oldPrice']    ?? null;
-                                $rimage   = $p['image_url']   ?? '';
-                                $rinStock = !empty($p['inStock']);
-                            ?>
-                            <article class="product-card">
-                                <a href="product.php?id=<?= $rid ?>" class="product-image-link">
-                                    <div class="product-image">
-                                        <img
-                                            src="<?= htmlspecialchars($rimage) ?>"
-                                            alt="<?= htmlspecialchars($rname) ?>"
-                                            loading="lazy"
-                                        >
-                                        <?php if (!empty($rold)): ?>
-                                            <span class="badge sale">Sale</span>
-                                        <?php endif; ?>
-                                        <?php if (!$rinStock): ?>
-                                            <span class="badge out">Out of stock</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </a>
-                                <div class="product-body">
-                                    <p class="product-category"><?= htmlspecialchars($rcat) ?></p>
-                                    <h3 class="product-name">
-                                        <a href="product.php?id=<?= $rid ?>">
-                                            <?= htmlspecialchars($rname) ?>
-                                        </a>
-                                    </h3>
-                                    <div class="product-footer">
-                                        <div class="product-price">
-                                            <span class="price-current"><?= format_price($rprice) ?></span>
-                                        </div>
-                                        <a href="product.php?id=<?= $rid ?>" class="add-to-cart">
-                                            View
-                                        </a>
-                                    </div>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
+            <div class="fr-reviews-list">
+                <?php if (empty($reviews)): ?>
+                    <div class="fr-empty">
+                        <i class="fa-regular fa-comment-dots"></i>
+                        <h3>No reviews yet</h3>
+                        <p>Be the first to review this product.</p>
                     </div>
-                </section>
-            <?php endif; ?>
+                <?php else: ?>
+                    <?php foreach ($reviews as $r): ?>
+                        <?php
+                            $rauthor  = $r['author']  ?? 'Anonymous';
+                            $rrating  = (int) ($r['rating'] ?? 0);
+                            $rcomment = $r['comment'] ?? '';
+                            $rdate    = $r['date']    ?? '';
+                        ?>
+                        <article class="fr-review">
+                            <header class="fr-review-head">
+                                <div class="fr-avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr($rauthor, 0, 1))) ?></div>
+                                <div class="fr-review-meta">
+                                    <strong><?= htmlspecialchars($rauthor) ?></strong>
+                                    <span class="stars"><?= render_stars($rrating) ?></span>
+                                    <small><?= time_ago($rdate) ?></small>
+                                </div>
+                            </header>
+                            <p class="fr-review-body"><?= nl2br(htmlspecialchars($rcomment)) ?></p>
+                        </article>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
 
-        <?php endif; ?>
-    </main>
-    <script src="/js/script.js"></script>
+    <!-- Related -->
+    <?php if (!empty($related)): ?>
+        <section class="fr-related">
+            <header>
+                <h2>You might also like</h2>
+                <p>More <?= htmlspecialchars($pcat) ?> picks.</p>
+            </header>
+
+            <div class="fr-grid fr-grid-4">
+                <?php foreach ($related as $p): ?>
+                    <?php
+                        $rid      = (int) ($p['id'] ?? 0);
+                        $rname    = $p['name']      ?? 'Untitled';
+                        $rcat     = $p['category']  ?? '';
+                        $rprice   = (float) ($p['price'] ?? 0);
+                        $rold     = $p['oldPrice']  ?? null;
+                        $rimage   = $p['image_url'] ?? '';
+                        $rinStock = !empty($p['inStock']);
+                    ?>
+                    <article class="fr-card">
+                        <a href="product.php?id=<?= $rid ?>" class="fr-card-img">
+                            <img src="<?= htmlspecialchars($rimage) ?>" alt="<?= htmlspecialchars($rname) ?>" loading="lazy">
+                            <?php if (!empty($rold)): ?><span class="fr-badge fr-badge-sale">Sale</span><?php endif; ?>
+                            <?php if (!$rinStock): ?><span class="fr-badge fr-badge-out">Out of stock</span><?php endif; ?>
+                        </a>
+                        <div class="fr-card-body">
+                            <p class="fr-card-meta"><?= htmlspecialchars($rcat) ?></p>
+                            <h3><a href="product.php?id=<?= $rid ?>"><?= htmlspecialchars($rname) ?></a></h3>
+                            <div class="fr-card-foot">
+                                <div class="fr-price"><strong><?= format_price($rprice) ?></strong></div>
+                                <a href="product.php?id=<?= $rid ?>" class="fr-add-link">View</a>
+                            </div>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
+<?php endif; ?>
+</main>
+
+<footer class="fr-footer">
+    <div class="fr-wrap fr-footer-inner">
+        <a href="index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
+        <nav aria-label="Footer">
+            <a href="products.php">Products</a>
+            <a href="orders.php">Orders</a>
+            <a href="about.php">About</a>
+            <a href="contact.php">Contact</a>
+        </nav>
+        <p>&copy; <?= date('Y') ?> Franklin</p>
+    </div>
+</footer>
+
+<script src="/js/script.js"></script>
 </body>
 </html>

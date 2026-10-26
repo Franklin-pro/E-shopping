@@ -49,150 +49,123 @@ foreach ($allUsers as $email => $u) {
 }
 
 $me = current_user();
+
+/* Cart count for the navbar badge */
+$cartCount = 0;
+foreach (($_SESSION['cart'] ?? []) as $qty) {
+    $cartCount += (int) $qty;
+}
+
+/* Renders the avatar + name + email cell */
+function user_cell(array $u): void { ?>
+    <div class="ad-user">
+        <span class="ad-avatar"><?= e(mb_strtoupper(mb_substr($u['name'] ?? '?', 0, 1))) ?></span>
+        <div>
+            <strong><?= e($u['name'] ?? '') ?></strong>
+            <small><?= e($u['email'] ?? '') ?></small>
+        </div>
+    </div>
+<?php }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin dashboard | G-SHOPPING</title>
-
-    <!-- main site CSS (one folder up) -->
-    <link rel="stylesheet" href="../style.css">
-
-    <!-- admin-specific CSS (same folder as this file) -->
-    <link rel="stylesheet" href="admin-style.css">
-
-    <!-- icons -->
+    <title>Admin dashboard | Franklin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+
+    <!-- shared site styles (one folder up) -->
+    <link rel="stylesheet" href="../home.css">
+    <!-- admin-specific styles (same folder as this file) -->
+    <link rel="stylesheet" href="admin-style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-inner">
-            <a href="/index.php" class="logo">G-SHOPPING</a>
-            <ul class="nav-links">
-                <li><a href="/index.php">Home</a></li>
-                <li><a href="/products.php">Products</a></li>
-                <li><a href="/orders.php">Orders</a></li>
-                <li><a href="/admin/index.php" class="active">Admin</a></li>
-            </ul>
-            <div class="nav-btn">
-                <a href="/cart.php" class="cart" aria-label="Cart">
-                    <i class="fa-solid fa-cart-shopping"></i>
-                    <span class="cart-count">0</span>
-                </a>
-                <button onclick="location.href='/logout.php'">Sign out</button>
-            </div>
-        </div>
-    </nav>
 
-    <main class="admin-page">
-        <div class="admin-topbar">
-            <div class="who">
-                <span class="user-avatar"><?= e(strtoupper(substr($me['name'], 0, 1))) ?></span>
-                <span>
-                    Signed in as <strong><?= e($me['name']) ?></strong>
-                    <span class="pill pill-admin">Admin</span>
-                </span>
-            </div>
-            <a href="/logout.php" class="btn-link">
-                <i class="fa-solid fa-right-from-bracket"></i> Sign out
+<header class="fr-nav">
+    <div class="fr-wrap fr-nav-inner">
+        <a href="/index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
+
+        <nav class="fr-links" aria-label="Main">
+            <a href="/index.php">Home</a>
+            <a href="/products.php">Products</a>
+            <a href="/orders.php">Orders</a>
+            <a href="/admin/index.php" class="is-active">Admin</a>
+        </nav>
+
+        <div class="fr-actions">
+            <a href="/cart.php" class="fr-cart" aria-label="Cart, <?= (int) $cartCount ?> items">
+                <i class="fa-solid fa-bag-shopping"></i>
+                <?php if ($cartCount > 0): ?><span class="fr-cart-count"><?= (int) $cartCount ?></span><?php endif; ?>
             </a>
+            <a href="/logout.php" class="fr-btn fr-btn-dark">Sign out</a>
         </div>
+    </div>
+</header>
 
-        <header class="admin-header">
+<main class="fr-wrap ad-page">
+    <header class="ad-head">
+        <div>
             <h1>Admin dashboard</h1>
-            <p>Manage users, review pending sellers, and keep the marketplace healthy.</p>
+            <p>Review seller requests and manage the people on Franklin.</p>
+        </div>
+        <div class="ad-me">
+            <span class="ad-avatar"><?= e(mb_strtoupper(mb_substr($me['name'], 0, 1))) ?></span>
+            <span><?= e($me['name']) ?> <span class="ad-pill ad-pill-admin">Admin</span></span>
+        </div>
+    </header>
+
+    <?php foreach ($flashes as $f): ?>
+        <div class="ad-alert ad-alert-<?= e($f['type']) ?>" role="status">
+            <i class="fa-solid fa-circle-info"></i>
+            <span><?= e($f['message']) ?></span>
+        </div>
+    <?php endforeach; ?>
+
+    <!-- ============= Stats ============= -->
+    <div class="ad-stats">
+        <div class="ad-stat"><i class="fa-solid fa-users"></i><div><b><?= count($allUsers) ?></b><span>Total users</span></div></div>
+        <div class="ad-stat <?= count($pendingSellers) > 0 ? 'is-alert' : '' ?>"><i class="fa-solid fa-clock"></i><div><b><?= count($pendingSellers) ?></b><span>Pending sellers</span></div></div>
+        <div class="ad-stat"><i class="fa-solid fa-store"></i><div><b><?= count($approvedSellers) ?></b><span>Approved sellers</span></div></div>
+        <div class="ad-stat"><i class="fa-solid fa-user"></i><div><b><?= count($customers) ?></b><span>Customers</span></div></div>
+    </div>
+
+    <!-- ============= Pending sellers ============= -->
+    <section class="ad-section <?= count($pendingSellers) > 0 ? 'is-pending' : '' ?>">
+        <header>
+            <h2><i class="fa-solid fa-user-clock"></i> Pending seller requests</h2>
+            <span class="ad-count"><?= count($pendingSellers) ?> awaiting review</span>
         </header>
 
-        <?php foreach ($flashes as $f): ?>
-            <div class="alert alert-<?= e($f['type']) ?>">
-                <i class="fa-solid fa-circle-info"></i>
-                <span><?= e($f['message']) ?></span>
-            </div>
-        <?php endforeach; ?>
-
-        <!-- ============= Stats ============= -->
-        <div class="admin-stats">
-            <div class="admin-stat">
-                <i class="fa-solid fa-users"></i>
-                <span class="value"><?= count($allUsers) ?></span>
-                <span class="label">Total users</span>
-            </div>
-            <div class="admin-stat">
-                <i class="fa-solid fa-clock"></i>
-                <span class="value"><?= count($pendingSellers) ?></span>
-                <span class="label">Pending sellers</span>
-            </div>
-            <div class="admin-stat">
-                <i class="fa-solid fa-store"></i>
-                <span class="value"><?= count($approvedSellers) ?></span>
-                <span class="label">Approved sellers</span>
-            </div>
-            <div class="admin-stat">
-                <i class="fa-solid fa-user"></i>
-                <span class="value"><?= count($customers) ?></span>
-                <span class="label">Customers</span>
-            </div>
-        </div>
-
-        <!-- ============= Pending sellers ============= -->
-        <section class="admin-section">
-            <header>
-                <h2><i class="fa-solid fa-user-clock"></i> Pending seller requests</h2>
-                <span class="count"><?= count($pendingSellers) ?> awaiting review</span>
-            </header>
-
-            <?php if (empty($pendingSellers)): ?>
-                <div class="admin-empty">
-                    <i class="fa-solid fa-circle-check"></i>
-                    No pending seller requests — all caught up!
-                </div>
-            <?php else: ?>
-                <table class="admin-table">
+        <?php if (empty($pendingSellers)): ?>
+            <div class="ad-empty"><i class="fa-solid fa-circle-check"></i> No pending seller requests. You're all caught up.</div>
+        <?php else: ?>
+            <div class="ad-scroll">
+                <table class="ad-table">
                     <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Registered</th>
-                            <th>Actions</th>
-                        </tr>
+                        <tr><th>User</th><th>Role</th><th>Status</th><th>Registered</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                         <?php foreach ($pendingSellers as $email => $u): ?>
                             <tr>
-                                <td>
-                                    <div class="user-cell">
-                                        <div class="user-avatar"><?= e(strtoupper(substr($u['name'], 0, 1))) ?></div>
-                                        <div>
-                                            <div class="user-name"><?= e($u['name']) ?></div>
-                                            <div class="user-email"><?= e($u['email']) ?></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="pill pill-seller">Seller</span></td>
-                                <td>
-                                    <span class="status-badge status-pending">
-                                        <i class="fa-solid fa-clock"></i> Pending
-                                    </span>
-                                </td>
+                                <td><?php user_cell($u); ?></td>
+                                <td><span class="ad-pill ad-pill-seller">Seller</span></td>
+                                <td><span class="ad-status ad-status-pending"><i class="fa-solid fa-clock"></i> Pending</span></td>
                                 <td><?= e($u['created']) ?></td>
                                 <td>
-                                    <div class="actions">
-                                        <form method="post" style="display:inline;">
+                                    <div class="ad-actions">
+                                        <form method="post">
                                             <input type="hidden" name="action" value="approve">
                                             <input type="hidden" name="email" value="<?= e($email) ?>">
-                                            <button type="submit" class="btn-mini approve">
-                                                <i class="fa-solid fa-check"></i> Approve
-                                            </button>
+                                            <button type="submit" class="ad-btn ad-btn-approve"><i class="fa-solid fa-check"></i> Approve</button>
                                         </form>
-                                        <form method="post" style="display:inline;">
+                                        <form method="post">
                                             <input type="hidden" name="action" value="reject">
                                             <input type="hidden" name="email" value="<?= e($email) ?>">
-                                            <button type="submit" class="btn-mini reject">
-                                                <i class="fa-solid fa-xmark"></i> Reject
-                                            </button>
+                                            <button type="submit" class="ad-btn ad-btn-reject"><i class="fa-solid fa-xmark"></i> Reject</button>
                                         </form>
                                     </div>
                                 </td>
@@ -200,147 +173,113 @@ $me = current_user();
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            <?php endif; ?>
-        </section>
+            </div>
+        <?php endif; ?>
+    </section>
 
-        <!-- ============= Approved sellers ============= -->
-        <section class="admin-section">
-            <header>
-                <h2><i class="fa-solid fa-store"></i> Approved sellers</h2>
-                <span class="count"><?= count($approvedSellers) ?> active</span>
-            </header>
+    <!-- ============= Approved sellers ============= -->
+    <section class="ad-section">
+        <header>
+            <h2><i class="fa-solid fa-store"></i> Approved sellers</h2>
+            <span class="ad-count"><?= count($approvedSellers) ?> active</span>
+        </header>
 
-            <?php if (empty($approvedSellers)): ?>
-                <div class="admin-empty">
-                    <i class="fa-solid fa-store-slash"></i>
-                    No approved sellers yet.
-                </div>
-            <?php else: ?>
-                <table class="admin-table">
+        <?php if (empty($approvedSellers)): ?>
+            <div class="ad-empty"><i class="fa-solid fa-store-slash"></i> No approved sellers yet.</div>
+        <?php else: ?>
+            <div class="ad-scroll">
+                <table class="ad-table">
                     <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Status</th>
-                            <th>Registered</th>
-                            <th>Actions</th>
-                        </tr>
+                        <tr><th>User</th><th>Status</th><th>Registered</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                         <?php foreach ($approvedSellers as $email => $u): ?>
                             <tr>
-                                <td>
-                                    <div class="user-cell">
-                                        <div class="user-avatar"><?= e(strtoupper(substr($u['name'], 0, 1))) ?></div>
-                                        <div>
-                                            <div class="user-name"><?= e($u['name']) ?></div>
-                                            <div class="user-email"><?= e($u['email']) ?></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="status-badge status-approved">
-                                        <i class="fa-solid fa-circle-check"></i> Approved
-                                    </span>
-                                </td>
+                                <td><?php user_cell($u); ?></td>
+                                <td><span class="ad-status ad-status-approved"><i class="fa-solid fa-circle-check"></i> Approved</span></td>
                                 <td><?= e($u['created']) ?></td>
                                 <td>
-                                    <form method="post" style="display:inline;">
+                                    <form method="post" onsubmit="return confirm('Revoke this seller\'s access?');">
                                         <input type="hidden" name="action" value="reject">
                                         <input type="hidden" name="email" value="<?= e($email) ?>">
-                                        <button type="submit" class="btn-mini reject">
-                                            <i class="fa-solid fa-ban"></i> Revoke
-                                        </button>
+                                        <button type="submit" class="ad-btn ad-btn-reject"><i class="fa-solid fa-ban"></i> Revoke</button>
                                     </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            <?php endif; ?>
-        </section>
+            </div>
+        <?php endif; ?>
+    </section>
 
-        <!-- ============= Customers ============= -->
-        <section class="admin-section">
-            <header>
-                <h2><i class="fa-solid fa-user"></i> Customers</h2>
-                <span class="count"><?= count($customers) ?> registered</span>
-            </header>
+    <!-- ============= Customers ============= -->
+    <section class="ad-section">
+        <header>
+            <h2><i class="fa-solid fa-user"></i> Customers</h2>
+            <span class="ad-count"><?= count($customers) ?> registered</span>
+        </header>
 
-            <?php if (empty($customers)): ?>
-                <div class="admin-empty">
-                    <i class="fa-solid fa-user-slash"></i>
-                    No customers yet.
-                </div>
-            <?php else: ?>
-                <table class="admin-table">
+        <?php if (empty($customers)): ?>
+            <div class="ad-empty"><i class="fa-solid fa-user-slash"></i> No customers yet.</div>
+        <?php else: ?>
+            <div class="ad-scroll">
+                <table class="ad-table">
                     <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Registered</th>
-                        </tr>
+                        <tr><th>User</th><th>Role</th><th>Status</th><th>Registered</th></tr>
                     </thead>
                     <tbody>
                         <?php foreach ($customers as $email => $u): ?>
                             <tr>
-                                <td>
-                                    <div class="user-cell">
-                                        <div class="user-avatar"><?= e(strtoupper(substr($u['name'], 0, 1))) ?></div>
-                                        <div>
-                                            <div class="user-name"><?= e($u['name']) ?></div>
-                                            <div class="user-email"><?= e($u['email']) ?></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="pill pill-customer">Customer</span></td>
-                                <td>
-                                    <span class="status-badge status-approved">
-                                        <i class="fa-solid fa-circle-check"></i> Active
-                                    </span>
-                                </td>
+                                <td><?php user_cell($u); ?></td>
+                                <td><span class="ad-pill">Customer</span></td>
+                                <td><span class="ad-status ad-status-approved"><i class="fa-solid fa-circle-check"></i> Active</span></td>
                                 <td><?= e($u['created']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            <?php endif; ?>
-        </section>
+            </div>
+        <?php endif; ?>
+    </section>
 
-        <!-- ============= Admins ============= -->
-        <section class="admin-section">
-            <header>
-                <h2><i class="fa-solid fa-shield-halved"></i> Administrators</h2>
-                <span class="count"><?= count($admins) ?> admin<?= count($admins) === 1 ? '' : 's' ?></span>
-            </header>
+    <!-- ============= Admins ============= -->
+    <section class="ad-section">
+        <header>
+            <h2><i class="fa-solid fa-shield-halved"></i> Administrators</h2>
+            <span class="ad-count"><?= count($admins) ?> admin<?= count($admins) === 1 ? '' : 's' ?></span>
+        </header>
 
-            <table class="admin-table">
+        <div class="ad-scroll">
+            <table class="ad-table">
                 <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Role</th>
-                        <th>Registered</th>
-                    </tr>
+                    <tr><th>User</th><th>Role</th><th>Registered</th></tr>
                 </thead>
                 <tbody>
                     <?php foreach ($admins as $email => $u): ?>
                         <tr>
-                            <td>
-                                <div class="user-cell">
-                                    <div class="user-avatar"><?= e(strtoupper(substr($u['name'], 0, 1))) ?></div>
-                                    <div>
-                                        <div class="user-name"><?= e($u['name']) ?></div>
-                                        <div class="user-email"><?= e($u['email']) ?></div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td><span class="pill pill-admin">Admin</span></td>
+                            <td><?php user_cell($u); ?></td>
+                            <td><span class="ad-pill ad-pill-admin">Admin</span></td>
                             <td><?= e($u['created']) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
-        </section>
-    </main>
+        </div>
+    </section>
+</main>
+
+<footer class="fr-footer">
+    <div class="fr-wrap fr-footer-inner">
+        <a href="/index.php" class="fr-logo"><span class="fr-logo-mark">F</span>Franklin</a>
+        <nav aria-label="Footer">
+            <a href="/products.php">Products</a>
+            <a href="/orders.php">Orders</a>
+            <a href="/contact.php">Contact</a>
+        </nav>
+        <p>&copy; <?= date('Y') ?> Franklin</p>
+    </div>
+</footer>
+
 </body>
 </html>
